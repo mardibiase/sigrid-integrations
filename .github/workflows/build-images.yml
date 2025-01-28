@@ -1,0 +1,19 @@
+name: build-images
+
+on:
+  push:
+
+jobs:
+  docker-hub:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+
+      -
+        name: Build
+        uses: docker/build-push-action@v6
+        with:
+          file: Dockerfile
+          push: false
