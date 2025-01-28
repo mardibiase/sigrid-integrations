@@ -3,7 +3,7 @@ FROM python:alpine
 COPY report-generator/ /sources
 
 RUN apk add --no-cache \
-        py3-lxml \
+        py3-lxml=5.3.0-r0 \
     && pip install /sources \
     && rm -rf /sources
 
