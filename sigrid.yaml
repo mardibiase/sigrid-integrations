@@ -5,8 +5,5 @@ languages:
 dependencychecker:
   blocklist: [ ]
 
-architecture:
-  enabled: true
-
 thirdpartyfindings:
   enabled: true
