@@ -7,5 +7,22 @@ jobs:
     steps:
       - name: "Check out repository"
         uses: actions/checkout@v4
-      - run: pip3 install -e "./report-generator/[test]"
 
+      - name: "Install dependencies"
+        run: |
+          pip3 install -e "./report-generator/[test]"
+
+      - name: "Run tests"
+        run: |
+          pytest --junitxml=results.xml
+
+      - name: "Upload test results"
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: results.xml
+
+      - name: "Publish test results"
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: results.xml
