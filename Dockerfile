@@ -1,12 +1,9 @@
-FROM python:slim-latest
+FROM python:alpine
 
 COPY report-generator/ /sources
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        python3-lxml \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \ 
+RUN apk add --no-cache \
+        py3-lxml \
     && pip install /sources \
     && rm -rf /sources
 
