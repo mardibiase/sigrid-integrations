@@ -1,0 +1,14 @@
+.DS_Store
+_rels/
+build/
+dist/
+docProps/
+src/slibu.egg-info/
+__pycache__
+.idea/
+*.egg-info/
+
+# To protect against people accidentally running in this directory
+out.pptx
+out.docx
+~$*.*
