@@ -1,0 +1,43 @@
+#!/bin/bash
+
+usage() {
+    echo "Usage: $0 <working directory> <command>"
+    echo
+    echo "Make sure SIGRID_CI_TOKEN contains a valid token."
+    echo
+    echo "Use one of the following commands:"
+    for cmd in "${COMMANDS[@]}"; do
+        echo "  $cmd"
+    done
+    exit 1
+}
+
+COMMANDS=("report-generator" "objectives_report.py" "get_scope_file.py")
+
+if [ $# -lt 2 ] || [ -z $SIGRID_CI_TOKEN ]; then
+    usage
+fi
+
+WORKING_DIR=$1
+COMMAND=$2
+shift
+
+MATCH_FOUND=false
+for cmd in "${COMMANDS[@]}"; do
+    if [ "$cmd" == "$COMMAND" ]; then
+        MATCH_FOUND=true
+        break
+    fi
+done
+
+if [ "$MATCH_FOUND" = false ]; then
+    echo "Error: Invalid command '$COMMAND'"
+    echo
+    usage
+fi
+
+docker run -it --rm \
+    -e SIGRID_CI_TOKEN="$SIGRID_CI_TOKEN" \
+    -v "$WORKING_DIR":/home/sigrid \
+    --entrypoint "" \
+    softwareimprovementgroup/sigrid-integrations "$@"

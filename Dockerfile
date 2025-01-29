@@ -1,14 +1,16 @@
 FROM python:alpine
 
-COPY report-generator/ /sources
+COPY report-generator/ /sources/report-generator
+COPY objectives-report /integrations/objectives-report
+COPY get-scope-file/ /integrations/get-scope-file
 
 RUN apk add --no-cache \
         py3-lxml=5.3.0-r0 \
-    && pip install /sources \
-    && rm -rf /sources
+    && adduser -S sigrid \
+    && pip install --no-cache-dir /sources/report-generator \
+    && rm -rf /sources \
+    && pip install --no-cache-dir -r /integrations/objectives-report/requirements.txt
 
-COPY objectives-report /integrations/objectives-report
-
-RUN pip install -r /integrations/objectives-report/requirements.txt
-
-ENV PATH="/integrations/objectives-report:${PATH}"
+ENV PATH="/integrations/objectives-report:/integrations/get-scope-file:${PATH}"
+USER sigrid
+WORKDIR /home/sigrid

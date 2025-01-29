@@ -166,11 +166,11 @@ if __name__ == "__main__":
     parser.add_argument("customer", type=str, help="Sigrid customer name.")
     parser.add_argument("--start", type=str, default=LAST_YEAR.strftime("%Y-%m-%d"), help="Start date (yyyy-mm-dd).")
     parser.add_argument("--end", type=str, default=TODAY.strftime("%Y-%m-%d"), help="End date (yyyy-mm-dd).")
-    parser.add_argument("--out", type=str, help="Output directory path.")
+    parser.add_argument("--out", type=str, default=os.getcwd(), help="Output directory path.")
     parser.add_argument("--sigridurl", type=str, default="https://sigrid-says.com")
     args = parser.parse_args()
     
-    if None in [args.customer, args.out]:
+    if None in [args.customer]:
         parser.print_help()
         sys.exit(1)
         

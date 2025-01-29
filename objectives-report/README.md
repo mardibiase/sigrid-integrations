@@ -13,12 +13,6 @@ You will need the following to use this script.
 - You will need a valid [API token](https://docs.sigrid-says.com/organization-integration/authentication-tokens.html) to access the [Sigrid REST API](https://docs.sigrid-says.com/integrations/sigrid-api-documentation.html).
 - Your API token should be available to the script as the environment variable `SIGRID_CI_TOKEN`.
 
-Alternatively, you can use the `softwareimprovementgroup/sigrid-integrations` docker image. The following command presents you with a prompt that allows you to follow the instructions below.
-
-```shell
-docker run -it --rm -e SIGRID_CI_TOKEN=[your token] --rm -v [your output directory]/:/tmp softwareimprovementgroup/sigrid-integrations /bin/bash
-```
-
 ## Usage
 
 Once all prerequisites are in place, you can use the script. The following example generate a report for the Sigrid account called `example`:
