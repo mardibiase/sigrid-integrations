@@ -1,6 +1,6 @@
 # sigrid-integrations
 
-This repo contains useful code we've created to leverage the power of the Sigrid API. The code is provided as-is, so when you use it, sanity-check your results. We do accept pull requests, so don't hesitate to contribute. Given the as-is nature of the repo, code maybe added, changed, removed or restructured as we learn more.
+This repo contains useful code we've created to leverage the power of [Sigrid's REST API](https://docs.sigrid-says.com/integrations/sigrid-api-documentation.html) to integrate data from Sigrid in your process. The code is provided as-is, so when you use it, sanity-check your results. We do accept pull requests, so don't hesitate to contribute. Given the as-is nature of the repo, code maybe added, changed, removed or restructured as we learn more.
 
 ## Usage remarks
 
@@ -19,9 +19,12 @@ This repo contains useful code we've created to leverage the power of the Sigrid
 
 ## Available integrations
 
-- `report-generator`
-- `objectives_report.py`
-- `get_scope_file.py`
+We currently have the following integrations:
+
+* [Slack security findings](slack-security-findings/) uses Sigrid's API to get open security findings for a system and posts the result to Slack.
+* [Objectives report](objectives-report/) generates charts based on Sigrid objectives, suitable to include in internal reporting. These charts go beyond what is available in the Sigrid user interface, and have a focus on reporting progress over longer periods of time.
+* [Get scope file](get-scope-file/) uses the Sigrid API to retrieve the latest [scope configuration file](https://docs.sigrid-says.com/reference/analysis-scope-configuration.html) that was used by Sigrid.
+* [Report Generator](report-generator/) is a tool/framework designed to generate any kind of report.
 
 ## License
 
