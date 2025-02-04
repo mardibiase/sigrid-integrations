@@ -28,4 +28,4 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.ref == 'refs/heads/main' }}
-          tags: sigrid-integrations:latest
+          tags: softwareimprovementgroup/sigrid-integrations:latest
