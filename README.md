@@ -11,11 +11,11 @@ This repo contains useful code we've created to leverage the power of [Sigrid's 
 ## Contributing remarks
 
 - Currently, all code is written in Python. This is not a hard rule, but it does make it easier to package it in a Docker image.
-- All integrations should
- - contain a README
- - display a usage message when called with no arguments
- - write any output to the current directory if none specified
- - not need to run as root
+- All integrations should:
+  - contain a README
+  - display a usage message when called with no arguments
+  - write any output to the current directory if none specified
+  - not need to run as root
 
 ## Available integrations
 
