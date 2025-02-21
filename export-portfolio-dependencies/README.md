@@ -29,7 +29,7 @@ Before using the system, you need to generate a Sigrid token. Tokens are unique 
 
 * Run: `export_portfolio_dependencies.py [-h] --customer CUSTOMER [--output OUTPUT] [--debug]`
 
-If all goes well, the report should be generated in the folder where you run the command. Otherwise, in the specified filename when passing the `--output` parameter.  
+If all goes well, the export should be in the folder where you run the command. Optionally, in the specified filename when passing the `--output` parameter.  
 
 #### Troubleshooting
 
