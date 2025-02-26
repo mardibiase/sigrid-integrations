@@ -22,26 +22,36 @@ import urllib.error
 import urllib.request
 from argparse import ArgumentParser, SUPPRESS
 
+def remove_true_only(scope_values):
+    
+    
+    return scope_values
+
+
 """
 Removes redundant files that are present in the default generated scopefile but either are redundant or 
 negatively impact Sigrid usage in the long term
 """
 def remove_redundant_fields(scope_file):
-    redundant_fields = ['architecture',
-                        'alerts',
-                        'default_excludes',
+    redundant_fields = ['alerts',
                         'repository',
                         'model',
                         'project_code',
                         'system',
                         'customer',
                         'partner']
-    
+
     scope_values = yaml.safe_load(scope_file)
 
     for field in redundant_fields:
         if field in scope_values:
              del scope_values[field]
+
+    # These values are redundant in most cases but would be required in the scope file if they are set to false
+    if 'architecture' in scope_values and scope_values['architecture']['enabled'] and scope_values['architecture']['history'] == 'none':
+            del scope_values['architecture']
+    if 'default_excludes' in scope_values and scope_values['default_excludes']:
+        del scope_values['default_excludes']
 
     scope_file = yaml.dump(scope_values)
     return scope_file
