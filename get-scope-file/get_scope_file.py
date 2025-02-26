@@ -15,11 +15,36 @@
 # limitations under the License.
 
 import json
+import yaml
 import os
 import sys
 import urllib.error
 import urllib.request
 from argparse import ArgumentParser, SUPPRESS
+
+"""
+Removes redundant files that are present in the default generated scopefile but either are redundant or 
+negatively impact Sigrid usage in the long term
+"""
+def remove_redundant_fields(scope_file):
+    redundant_fields = ['architecture',
+                        'alerts',
+                        'default_excludes',
+                        'repository',
+                        'model',
+                        'project_code',
+                        'system',
+                        'customer',
+                        'partner']
+    
+    scope_values = yaml.safe_load(scope_file)
+
+    for field in redundant_fields:
+        if field in scope_values:
+             del scope_values[field]
+
+    scope_file = yaml.dump(scope_values)
+    return scope_file
 
 
 if __name__ == "__main__":
@@ -49,7 +74,8 @@ if __name__ == "__main__":
                 sys.exit(1)
 
             results = json.load(response)
-            print(results["metadata"]["scopeFile"])
+            scope_file = results["metadata"]["scopeFile"]
+            print(remove_redundant_fields(scope_file))
     except urllib.error.HTTPError as e:
         print(f"Failed to retrieve analysis results from Sigrid (HTTP status {e.code})")
         sys.exit(1)
