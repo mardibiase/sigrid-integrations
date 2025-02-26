@@ -22,11 +22,6 @@ import urllib.error
 import urllib.request
 from argparse import ArgumentParser, SUPPRESS
 
-def remove_true_only(scope_values):
-    
-    
-    return scope_values
-
 
 """
 Removes redundant files that are present in the default generated scopefile but either are redundant or 
