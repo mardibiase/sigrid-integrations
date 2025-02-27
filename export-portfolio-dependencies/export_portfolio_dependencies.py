@@ -98,6 +98,26 @@ def process_component(component: Dict, system_name: str) -> Dict:
     return flat_component
 
 
+def process_all_systems(systems: List[Dict]) -> List[Dict]:
+    all_components = {}
+    for system in systems:
+        system_name = system.get('systemName', 'Unknown System')
+        logger.info(f"Processing system '{system_name}'")
+        components = system.get('sbom', {}).get('components', [])
+
+        for component in components:
+            key = (component.get('name', ''), component.get('version', ''))
+            if key not in all_components:
+                all_components[key] = process_component(component, system_name)
+                all_components[key]['systems'] = set()
+            all_components[key]['systems'].add(system_name)
+
+    for component in all_components.values():
+        component['systems'] = ', '.join(sorted(component['systems']))
+
+    return list(all_components.values())
+
+
 def process_system(system: Dict) -> List[Dict]:
     system_name = system.get('systemName', 'Unknown System')
     components = system.get('sbom', {}).get('components', [])
@@ -118,24 +138,43 @@ def create_excel_sheet(writer: pd.ExcelWriter, system_name: str, components: Lis
         return False
 
 
-def process_api_output(json_data: Any, output_file: str):
+def create_single_excel_sheet(writer: pd.ExcelWriter, components: List[Dict]):
+    if components:
+        df = pd.DataFrame(components)
+        df.to_excel(writer, sheet_name='All Components', index=False)
+        logger.debug(f"Created single sheet with all components")
+        return True
+    else:
+        logger.warning(f"No dependencies found across all systems")
+        return False
+
+
+def process_api_output(json_data: Any, output_file: str, pivot: bool):
     try:
         logger.debug(f"Received data type: {type(json_data)}")
         parsed_data = parse_json_data(json_data)
         systems = validate_json_structure(parsed_data)
 
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-            sheets_created = 0
-            for system in systems:
-                components = process_system(system)
-                if create_excel_sheet(writer, system['systemName'], components):
-                    sheets_created += 1
+            if pivot:
+                all_components = process_all_systems(systems)
+                if create_single_excel_sheet(writer, all_components):
+                    logger.info(f"Excel file created successfully with pivoted data: {output_file}")
+                else:
+                    logger.warning("No data available. Adding a default sheet.")
+                    pd.DataFrame({"Message": ["No data available"]}).to_excel(writer, sheet_name='No Data', index=False)
+            else:
+                sheets_created = 0
+                for system in systems:
+                    components = process_system(system)
+                    if create_excel_sheet(writer, system['systemName'], components):
+                        sheets_created += 1
 
-            if sheets_created == 0:
-                logger.warning("No sheets were created. Adding a default sheet.")
-                pd.DataFrame({"Message": ["No data available"]}).to_excel(writer, sheet_name='No Data', index=False)
-
-        logger.info(f"Excel file created successfully: {output_file}")
+                if sheets_created == 0:
+                    logger.warning("No sheets were created. Adding a default sheet.")
+                    pd.DataFrame({"Message": ["No data available"]}).to_excel(writer, sheet_name='No Data', index=False)
+                else:
+                    logger.info(f"Excel file created successfully with multiple sheets: {output_file}")
 
     except ValueError as e:
         logger.error(f"Value error: {str(e)}")
@@ -158,6 +197,8 @@ def parse_arguments():
     parser.add_argument("--customer", type=str, required=True, help="Sigrid customer name.")
     parser.add_argument("--output", type=validate_output_filename,
                         help="Output Excel file name (not path). If not specified, a default name will be used.")
+    parser.add_argument("--pivot", action="store_true", help="Generate a single sheet with all dependencies "
+                                                             "instead of a sheet per system")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     return parser.parse_args()
 
@@ -184,7 +225,7 @@ def main():
         logger.info(f"Fetching data for customer: {customer_name}")
         json_data = fetch_api_data(customer_name, token)
         logger.info(f"Data fetched successfully. Processing output...")
-        process_api_output(json_data, output_file)
+        process_api_output(json_data, output_file, args.pivot)
         logger.info(f"Data successfully exported to {output_file}")
     except Exception as e:
         logger.exception(f"An error occurred: {e}")
