@@ -43,7 +43,7 @@ def remove_redundant_fields(scope_file):
              del scope_values[field]
 
     # These values are redundant in most cases but would be required in the scope file if they are set to false
-    if 'architecture' in scope_values and scope_values['architecture']['enabled'] and scope_values['architecture']['history'] == 'none':
+    if 'architecture' in scope_values and scope_values['architecture']['enabled']:
             del scope_values['architecture']
     if 'default_excludes' in scope_values and scope_values['default_excludes']:
         del scope_values['default_excludes']
