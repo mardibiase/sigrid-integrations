@@ -15,11 +15,65 @@
 # limitations under the License.
 
 import json
+import yaml
 import os
 import sys
 import urllib.error
 import urllib.request
 from argparse import ArgumentParser, SUPPRESS
+
+
+"""
+Removes redundant files that are present in the default generated scopefile but either are redundant or 
+negatively impact Sigrid usage in the long term
+"""
+def remove_redundant_fields(scope_file):
+    redundant_fields = ['alerts',
+                        'repository',
+                        'model',
+                        'project_code',
+                        'system',
+                        'customer',
+                        'partner']
+
+    scope_values = yaml.safe_load(scope_file)
+
+    for field in redundant_fields:
+        if field in scope_values:
+             del scope_values[field]
+
+    # These values are redundant in most cases but would be required in the scope file if they are set to false
+    if 'architecture' in scope_values and scope_values['architecture']['enabled']:
+            del scope_values['architecture']
+    if 'default_excludes' in scope_values and scope_values['default_excludes']:
+        del scope_values['default_excludes']
+
+    scope_file = yaml.dump(scope_values)
+    return scope_file
+
+"""
+Checks if there is a client scope file defined for the system and if there isn't, removes the default fields that are redundant
+It assumes that redundant fields a client has uploaded could be part of a logic so currently it doesn't override those
+"""
+def clean_up_default_scopefile(scope_file, args):
+    url = f"{args.sigridurl}/rest/analysis-results/api/v1/system-metadata/{args.customer}/{args.system}"
+    request = urllib.request.Request(url)
+    request.add_header("Accept", "application/json")
+    request.add_header("Authorization", f"Bearer {os.environ['SIGRID_CI_TOKEN']}".encode("utf8"))
+
+    try:
+        with urllib.request.urlopen(request) as response:
+            if response.status == 204:
+                print(f"Sigrid cannot find metadata for this system (HTTP status {response.status})")
+                sys.exit(1)
+
+            metadata = json.load(response)
+            if not metadata['scopeFileInRepository']:
+                scope_file = remove_redundant_fields(scope_file)
+    except urllib.error.HTTPError as e:
+        print(f"Failed to retrieve metadata from Sigrid (HTTP status {e.code})")
+        sys.exit(1)
+    return scope_file
 
 
 if __name__ == "__main__":
@@ -49,7 +103,8 @@ if __name__ == "__main__":
                 sys.exit(1)
 
             results = json.load(response)
-            print(results["metadata"]["scopeFile"])
+            scope_file = results["metadata"]["scopeFile"]
+            print(clean_up_default_scopefile(scope_file, args))
     except urllib.error.HTTPError as e:
         print(f"Failed to retrieve analysis results from Sigrid (HTTP status {e.code})")
         sys.exit(1)
