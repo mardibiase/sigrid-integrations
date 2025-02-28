@@ -2,7 +2,7 @@
 
 ## Intro
 
-The export portfolio dependencies to Excel is a tiny Python script to export all your Sigrid portfolio dependencies in a single self-contained document.  
+The export portfolio dependencies to Excel is a tiny Python script to export all third party open source (OSH) dependencies measured from a Sigrid portfolio in a single self-contained document.  
 Each sheet in the output Excel file will contain a systems' dependencies.
 
 ## Status
