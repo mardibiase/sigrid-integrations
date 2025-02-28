@@ -16,6 +16,7 @@ This repo contains useful code we've created to leverage the power of [Sigrid's 
   - display a usage message when called with no arguments
   - write any output to the current directory if none specified
   - not need to run as root
+- When applicable, please modify the `Dockerfile` and the `integrations.sh` script to support your script.
 
 ## Available integrations
 
