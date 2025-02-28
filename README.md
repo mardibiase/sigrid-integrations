@@ -25,6 +25,7 @@ We currently have the following integrations:
 * [Objectives report](objectives-report/) generates charts based on Sigrid objectives, suitable to include in internal reporting. These charts go beyond what is available in the Sigrid user interface, and have a focus on reporting progress over longer periods of time.
 * [Get scope file](get-scope-file/) uses the Sigrid API to retrieve the latest [scope configuration file](https://docs.sigrid-says.com/reference/analysis-scope-configuration.html) that was used by Sigrid.
 * [Report Generator](report-generator/) is a tool/framework designed to generate any kind of report.
+* [Export Portfolio dependencies](export-portfolio-dependencies/) exports to Excel all the third-party open source dependencies of a portfolio.
 
 ## License
 
