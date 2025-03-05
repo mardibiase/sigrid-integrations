@@ -46,12 +46,13 @@ class Finding:
 class SigridApiClient:
 
     def __init__(self, customer: str, system: str, token: str):
-        self.sigrid_api = f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{customer.lower()}/{system.lower()}'
+        self.customer = customer.lower()
+        self.system = system.lower()
         self.token = token
 
-    def get_findings(self) -> Union[Any, None]:
+    def get_security_findings(self) -> Union[Any, None]:
         try:
-            req = request.Request(self.sigrid_api)
+            req = request.Request(f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{self.customer}/{self.system}')
             req.add_header('Authorization', 'Bearer ' + self.token)
             with request.urlopen(req) as response:
                 return json.loads(self.handle_response(response))
@@ -69,7 +70,7 @@ class SigridApiClient:
     def handle_response(response):
         if response.status == 200:
             findings = response.read().decode('utf-8')
-            LOG.info('Sigrid returned findings JSON (length: %s chars)', len(findings))
+            LOG.info('Sigrid returned JSON (length: %s chars)', len(findings))
             return findings
         else:
             LOG.error('Sigrid returned status code %s', response.status)
@@ -78,7 +79,64 @@ class SigridApiClient:
     @staticmethod
     def is_valid_token(token):
         return token is not None and len(token) >= 64
+
+class PolarionApiClient:
+
+    def __init__(self, projectid: str, token: str):
+        self.token = token
+        self.projectid = projectid
     
+    def retreive(self):
+        try:
+            req = request.Request(f"https://industry-solutions.polarion.com/polarion/rest/v1/projects/{self.projectid}/workitems")
+            req.add_header('Authorization', 'Bearer ' + self.token)
+            with request.urlopen(req) as response:
+                return json.loads(self.handle_response(response))
+        except URLError as e:
+            LOG.error('Unable to connect to Polarion API: %s', str(e))
+            return None
+        except RemoteDisconnected:
+            LOG.error('Polarion disconnected or timed out')
+            return None
+        except JSONDecodeError:
+            LOG.error('Polarion API response contains invalid JSON')
+            return None
+
+    def post(self, data):
+        try:
+            req = request.Request(f"https://industry-solutions.polarion.com/polarion/rest/v1/projects/{self.projectid}/workitems", data=data, method="POST")
+            req.add_header('Authorization', 'Bearer ' + self.token)
+            req.add_header('Content-Type', 'application/json')
+            with request.urlopen(req) as response:
+                return json.loads(self.handle_response(response))
+        except URLError as e:
+            LOG.error('Unable to connect to Polarion API: %s', str(e))
+            return None
+        except RemoteDisconnected:
+            LOG.error('Polarion disconnected or timed out')
+            return None
+        except JSONDecodeError:
+            LOG.error('Polarion API response contains invalid JSON')
+            return None
+
+
+    @staticmethod
+    def handle_response(response):
+        if response.status == 200:
+            res = response.read().decode('utf-8')
+            LOG.info('[200] Polarion returned JSON (length: %s chars)', len(res))
+            return res
+        elif response.status == 201:
+            res = response.read()
+            LOG.info('[201] Polarion returned JSON (length: %s chars)', len(res))
+            return res
+        else:
+            LOG.error('Polarion returned status code %s', response.status)
+            return None
+        
+    @staticmethod
+    def is_valid_token(token):
+        return token is not None
 
 def filter_finding(finding: Finding) -> bool:
     return True
@@ -87,6 +145,7 @@ def filter_finding(finding: Finding) -> bool:
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
     result = []
     for raw_finding in findings:
+        print(raw_finding)
         finding = Finding(
             raw_finding['href'],
             date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
@@ -116,12 +175,36 @@ def get_filename(file_path: Union[str, None]) -> str:
         return parts[-1]
 
 
-
+def createWorkItem(finding: Finding):
+    if finding.status == "RAW":
+        return {
+                    "type": "workitems",
+                    "attributes": {
+                        "title": f"Sigrid - {finding.type}",
+                        "type": "task",
+                        "priority": str(finding.severity_score*10),
+                        "description": {
+                            "type": "text/html",
+                            "value": f"Sigrid security finding: {finding}"
+                        },
+                        "hyperlinks": [
+                        {
+                            "role": "ref_ext",
+                            "uri": finding.href
+                        }
+                        ],
+                        "severity": "Normal",
+                        "status": "open"
+                    }
+                }
+    else:
+        return None
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='Gets open security findings and post them to Slack.')
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
     parser.add_argument('--system', type=str, required=True, help='Name of your system in Sigrid, letters/digits/hyphens only.')
+    parser.add_argument('--polarionproject', type=str, required=True, help='Id of your project in Polation.')
     args = parser.parse_args()
 
     if sys.version_info.major == 2 or sys.version_info.minor < 9:
@@ -133,9 +216,24 @@ if __name__ == "__main__":
         print('Missing or incomplete environment variable SIGRID_CI_TOKEN')
         sys.exit(1)
 
+    polarion_authentication_token = os.getenv('POLARION_API_TOKEN')
+    if not PolarionApiClient.is_valid_token(polarion_authentication_token):
+        print('Missing or incomplete environment variable POLARION_API_TOKEN')
+        sys.exit(1)
+
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
-    all_findings = sigrid.get_findings()
+    all_findings = sigrid.get_security_findings()
     processed_findings = process_findings(all_findings, filter_finding)
-    print(processed_findings)
+    print(len(processed_findings))
+    print(processed_findings[0])
+
+    polarion = PolarionApiClient(args.polarionproject, polarion_authentication_token)
+
+    polarion_workitems = polarion.retreive()
+    print(polarion_workitems["data"])
+
+    workitems_to_add = [createWorkItem(processed_findings[0])]
+
+    # polarion.post(json.dumps({"data": workitems_to_add}).encode('utf-8'))
