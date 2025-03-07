@@ -118,6 +118,43 @@ class PolarionApiClient:
         except JSONDecodeError:
             LOG.error('Polarion API response contains invalid JSON')
             return None
+    
+    def workitem_add_list(self, findings: list[Finding], workitems: list):
+        sigrid_workitems = list(filter(self.is_sigrid_workitem, workitems))
+        print("workitems", workitems)
+        
+        return list(map(self.create_work_item, findings))
+
+    
+    @staticmethod
+    def create_work_item(finding: Finding):
+        if finding.status == "RAW":
+            return {
+                        "type": "workitems",
+                        "attributes": {
+                            "title": f"Sigrid - {finding.type}",
+                            "type": "task",
+                            "priority": str(finding.severity_score*10),
+                            "description": {
+                                "type": "text/html",
+                                "value": f"Sigrid security finding: {finding}"
+                            },
+                            "hyperlinks": [
+                            {
+                                "role": "ref_ext",
+                                "uri": finding.href
+                            }
+                            ],
+                            "severity": "Normal",
+                            "status": "open"
+                        }
+                    }
+        else:
+            return None
+
+    @staticmethod
+    def is_sigrid_workitem(workitem) -> bool:
+        return True
 
 
     @staticmethod
@@ -145,7 +182,6 @@ def filter_finding(finding: Finding) -> bool:
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
     result = []
     for raw_finding in findings:
-        print(raw_finding)
         finding = Finding(
             raw_finding['href'],
             date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
@@ -175,31 +211,6 @@ def get_filename(file_path: Union[str, None]) -> str:
         return parts[-1]
 
 
-def createWorkItem(finding: Finding):
-    if finding.status == "RAW":
-        return {
-                    "type": "workitems",
-                    "attributes": {
-                        "title": f"Sigrid - {finding.type}",
-                        "type": "task",
-                        "priority": str(finding.severity_score*10),
-                        "description": {
-                            "type": "text/html",
-                            "value": f"Sigrid security finding: {finding}"
-                        },
-                        "hyperlinks": [
-                        {
-                            "role": "ref_ext",
-                            "uri": finding.href
-                        }
-                        ],
-                        "severity": "Normal",
-                        "status": "open"
-                    }
-                }
-    else:
-        return None
-
 if __name__ == "__main__":
     parser = ArgumentParser(description='Gets open security findings and post them to Slack.')
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
@@ -226,14 +237,11 @@ if __name__ == "__main__":
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
     all_findings = sigrid.get_security_findings()
     processed_findings = process_findings(all_findings, filter_finding)
-    print(len(processed_findings))
-    print(processed_findings[0])
 
     polarion = PolarionApiClient(args.polarionproject, polarion_authentication_token)
 
     polarion_workitems = polarion.retreive()
-    print(polarion_workitems["data"])
 
-    workitems_to_add = [createWorkItem(processed_findings[0])]
-
+    workitems_to_add = polarion.workitem_add_list(processed_findings, polarion_workitems)
     # polarion.post(json.dumps({"data": workitems_to_add}).encode('utf-8'))
+
