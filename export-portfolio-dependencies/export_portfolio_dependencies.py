@@ -211,7 +211,7 @@ def parse_arguments():
                         help="Output Excel file name (not path). If not specified, a default name will be used.")
     parser.add_argument("--pivot", action="store_true", help="Generate a single sheet with all dependencies "
                                                              "instead of a sheet per system")
-    parser.add_argument("--mendix_versions", action="store_true", help="Get a full list of Mendix versions only if enabled")
+    parser.add_argument("--mendix_versions_only", action="store_true", help="Get a full list of Mendix versions only if enabled")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     return parser.parse_args()
 
@@ -231,7 +231,7 @@ def main():
 
     if args.output:
         output_file = args.output
-    elif args.mendix_versions:
+    elif args.mendix_versions_only:
         output_file = f'{customer_name}-mendix-versions.xlsx'
     else:
         output_file = f'{customer_name}-portfolio-dependencies.xlsx'
@@ -240,7 +240,7 @@ def main():
         logger.info(f"Fetching data for customer: {customer_name}")
         json_data = fetch_api_data(customer_name, token)
         logger.info(f"Data fetched successfully. Processing output...")
-        process_api_output(json_data, output_file, args.pivot, args.mendix_versions)
+        process_api_output(json_data, output_file, args.pivot, args.mendix_versions_only)
         logger.info(f"Data successfully exported to {output_file}")
     except Exception as e:
         logger.exception(f"An error occurred: {e}")
