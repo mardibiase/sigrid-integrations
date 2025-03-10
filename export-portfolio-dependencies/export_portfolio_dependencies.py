@@ -157,18 +157,18 @@ def retrieve_mendix_versions(json_data: Any):
     return json_data
 
 
-def process_api_output(json_data: Any, output_file: str, pivot: bool, mendix_versions: bool):
+def process_api_output(json_data: Any, output_file: str, pivot: bool, mendix_versions_only: bool):
     try:
         logger.debug(f"Received data type: {type(json_data)}")
         parsed_data = parse_json_data(json_data)
 
-        if mendix_versions:
+        if mendix_versions_only:
             parsed_data = retrieve_mendix_versions(parsed_data)
 
         systems = validate_json_structure(parsed_data)
 
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-            if pivot or mendix_versions:
+            if pivot or mendix_versions_only:
                 all_components = process_all_systems(systems)
                 if create_single_excel_sheet(writer, all_components):
                     logger.info(f"Excel file created successfully with pivoted data: {output_file}")
