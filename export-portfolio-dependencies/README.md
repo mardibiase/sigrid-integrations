@@ -27,13 +27,15 @@ Before using the system, you need to generate a Sigrid token. Tokens are unique 
 
 ### Run the tool
 
-* Run: `export_portfolio_dependencies.py [-h] --customer CUSTOMER [--output OUTPUT] [--pivot] [--debug]`  
+* Run: `export_portfolio_dependencies.py [-h] --customer CUSTOMER [--output OUTPUT] [--pivot] [--mendix_versions] [--debug]`  
 
 The script creates a sheet per system and saves it into a single Excel file. Using `--pivot`, it creates
 a single sheet where all dependencies are pivoted, with an additional column containing a comma-separated list of systems where 
 that single dependency is measured. 
 
 If all goes well, the export should be in the folder where you run the command. Optionally, in the specified filename when passing the `--output` parameter.  
+
+The `--mendix_versions` is an optional field for users using QSM. Using this field retrieves all the different Mendix-Runtime versions used for each system and writes it to the output file. 
 
 #### Troubleshooting
 
