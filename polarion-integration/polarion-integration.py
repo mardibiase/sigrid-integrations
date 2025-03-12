@@ -82,10 +82,10 @@ class SigridApiClient:
 
 class PolarionApiClient:
     SEVERITY_MAPPING = {
-        "critical" : "Must Have",
-        "high" : "Should Have",
-        "medium" : "Nice to Have",
-        "low" : "Nice to Have"
+        "CRITICAL" : "Must Have",
+        "HIGH" : "Should Have",
+        "MEDIUM" : "Nice to Have",
+        "LOW" : "Nice to Have"
     }
 
     def __init__(self, baseURL, token, projectId):
@@ -142,7 +142,7 @@ class PolarionApiClient:
                                 "uri": finding.href
                             }
                             ],
-                            "severity": self.SEVERITY_MAPPING[finding.severity.lower()],
+                            "severity": self.SEVERITY_MAPPING[finding.severity],
                             "status": "open",
                             "Fingerprint": str(hash(finding)),
                             "CWE": finding.cweId,
@@ -152,6 +152,9 @@ class PolarionApiClient:
                     }
         else:
             return None
+
+    def filterSecurityFindings(self, finding: Finding):
+        return finding.severity != "INFORMATION"
 
 
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
@@ -213,11 +216,11 @@ if __name__ == "__main__":
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
-    all_security_findings = process_findings(sigrid.get_security_findings(), lambda x: True)[0:3]
 
     polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject)
 
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filterSecurityFindings)[:5]
+
     new_security_findings = list(filter(polarion.isNewFinding, all_security_findings))
     polarion.createWorkItems(list(map(polarion.create_work_item, new_security_findings)))
-    # print(polarion.listWorkItems())
