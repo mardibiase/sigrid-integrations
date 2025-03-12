@@ -144,7 +144,6 @@ class PolarionApiClient:
                             ],
                             "severity": self.SEVERITY_MAPPING[finding.severity],
                             "status": "open",
-                            "Fingerprint": str(hash(finding)),
                             "CWE": finding.cweId,
                             "findingid": finding.id
                         },
