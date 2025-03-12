@@ -32,8 +32,9 @@ from argparse import ArgumentParser
 LOG = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Finding:
+    id: str
     href: str
     first_seen_snapshot_date: date
     file_path: str
@@ -43,10 +44,11 @@ class Finding:
     severity: str
     severity_score: float
     status: str
-
+    component: str
+    cweId: str
 
 class SigridApiClient:
-
+    
     def __init__(self, customer: str, system: str, token: str):
         self.customer = customer.lower()
         self.system = system.lower()
@@ -79,6 +81,13 @@ class SigridApiClient:
             return None
 
 class PolarionApiClient:
+    SEVERITY_MAPPING = {
+        "critical" : "Must Have",
+        "high" : "Should Have",
+        "medium" : "Nice to Have",
+        "low" : "Nice to Have"
+    }
+
     def __init__(self, baseURL, token, projectId):
         self.baseURL = baseURL
         self.token = token
@@ -116,14 +125,13 @@ class PolarionApiClient:
         body = {"data" : links}
         return self.call("POST", f"/projects/{self.projectId}/workitems/{workItemId}/linkedworkitems", body)
 
-    @staticmethod
-    def create_work_item(finding: Finding):
+    def create_work_item(self, finding: Finding):
         if finding.status == "RAW":
             return {
                         "type": "workitems",
                         "attributes": {
                             "title": f"Sigrid - {finding.type}",
-                            "type": "task",
+                            "type": "sigridsecurityissue",
                             "priority": str(finding.severity_score*10),
                             "description": {
                                 "type": "text/html",
@@ -135,9 +143,13 @@ class PolarionApiClient:
                                 "uri": finding.href
                             }
                             ],
-                            "severity": "Normal",
-                            "status": "open"
-                        }
+                            "severity": self.SEVERITY_MAPPING[finding.severity.lower()],
+                            "status": "open",
+                            "Fingerprint": str(hash(finding)),
+                            "CWE": finding.cweId,
+                            "Finding Id": finding.id
+                        },
+                        "relationships" : {}
                     }
         else:
             return None
@@ -147,15 +159,18 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
     result = []
     for raw_finding in findings:
         finding = Finding(
-            raw_finding['href'],
-            date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
-            raw_finding['filePath'],
-            raw_finding['startLine'],
-            raw_finding['endLine'],
-            raw_finding['type'],
-            raw_finding['severity'],
-            raw_finding['severityScore'],
-            raw_finding['status']
+            id=raw_finding['id'],
+            href=raw_finding['href'],
+            first_seen_snapshot_date=date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
+            file_path=raw_finding['filePath'],
+            start_line=raw_finding['startLine'],
+            end_line=raw_finding['endLine'],
+            type=raw_finding['type'],
+            severity=raw_finding['severity'],
+            severity_score=raw_finding['severityScore'],
+            status=raw_finding['status'],
+            component=raw_finding['component'],
+            cweId=raw_finding['cweId']
         )
         if include(finding):
             result.append(finding)
@@ -199,7 +214,11 @@ if __name__ == "__main__":
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
-    all_security_findings = process_findings(sigrid.get_security_findings(), lambda x: True)
+    all_security_findings = process_findings(sigrid.get_security_findings(), lambda x: True)[0:1]
+    print(sigrid.get_security_findings()[0])
 
     polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject)
+
+    polarion.createWorkItems(list(map(polarion.create_work_item, all_security_findings)))
+    # print(polarion.listWorkItems())
