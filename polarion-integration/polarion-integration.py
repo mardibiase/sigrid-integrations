@@ -111,11 +111,10 @@ class PolarionApiClient:
      
     def listWorkItems(self):
         return self.call("GET", f"/projects/{self.projectId}/workitems")
-        
-    def checkWorkItemExists(self, fingerprint):
-        encodedFingerprint = urllib.parse.quote(fingerprint.encode("utf8"))
-        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=fingerprint%3A{encodedFingerprint}")
-        return "data" in response and len(response["data"]) > 0
+    
+    def isNewFinding(self, finding: Finding):
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
+        return not ("data" in response and len(response["data"]) > 0)
         
     def createWorkItems(self, workItems):
         body = {"data" : workItems}
@@ -147,7 +146,7 @@ class PolarionApiClient:
                             "status": "open",
                             "Fingerprint": str(hash(finding)),
                             "CWE": finding.cweId,
-                            "Finding Id": finding.id
+                            "findingid": finding.id
                         },
                         "relationships" : {}
                     }
@@ -214,11 +213,11 @@ if __name__ == "__main__":
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
-    all_security_findings = process_findings(sigrid.get_security_findings(), lambda x: True)[0:1]
-    print(sigrid.get_security_findings()[0])
+    all_security_findings = process_findings(sigrid.get_security_findings(), lambda x: True)[0:3]
 
     polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject)
 
-    polarion.createWorkItems(list(map(polarion.create_work_item, all_security_findings)))
+    new_security_findings = list(filter(polarion.isNewFinding, all_security_findings))
+    polarion.createWorkItems(list(map(polarion.create_work_item, new_security_findings)))
     # print(polarion.listWorkItems())
