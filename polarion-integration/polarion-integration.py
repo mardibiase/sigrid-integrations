@@ -18,14 +18,16 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from http.client import RemoteDisconnected
 from json import JSONDecodeError
 from typing import Callable, Any, Union
-from urllib import request
+import urllib.parse
+import urllib.request
+import urllib.error
 from urllib.error import URLError
 import logging
-from argparse import ArgumentParser, BooleanOptionalAction
+from argparse import ArgumentParser
 
 LOG = logging.getLogger(__name__)
 
@@ -52,9 +54,9 @@ class SigridApiClient:
 
     def get_security_findings(self) -> Union[Any, None]:
         try:
-            req = request.Request(f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{self.customer}/{self.system}')
+            req = urllib.request.Request(f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{self.customer}/{self.system}')
             req.add_header('Authorization', 'Bearer ' + self.token)
-            with request.urlopen(req) as response:
+            with urllib.request.urlopen(req) as response:
                 return json.loads(self.handle_response(response))
         except URLError as e:
             LOG.error('Unable to connect to Sigrid API: %s', str(e))
@@ -76,56 +78,44 @@ class SigridApiClient:
             LOG.error('Sigrid returned status code %s', response.status)
             return None
 
-    @staticmethod
-    def is_valid_token(token):
-        return token is not None and len(token) >= 64
-
 class PolarionApiClient:
-
-    def __init__(self, projectid: str, token: str):
+    def __init__(self, baseURL, token, projectId):
+        self.baseURL = baseURL
         self.token = token
-        self.projectid = projectid
-    
-    def retreive(self):
-        try:
-            req = request.Request(f"https://industry-solutions.polarion.com/polarion/rest/v1/projects/{self.projectid}/workitems")
-            req.add_header('Authorization', 'Bearer ' + self.token)
-            with request.urlopen(req) as response:
-                return json.loads(self.handle_response(response))
-        except URLError as e:
-            LOG.error('Unable to connect to Polarion API: %s', str(e))
-            return None
-        except RemoteDisconnected:
-            LOG.error('Polarion disconnected or timed out')
-            return None
-        except JSONDecodeError:
-            LOG.error('Polarion API response contains invalid JSON')
-            return None
+        self.projectId = urllib.parse.quote(projectId.encode("utf8"))
 
-    def post(self, data):
-        try:
-            req = request.Request(f"https://industry-solutions.polarion.com/polarion/rest/v1/projects/{self.projectid}/workitems", data=data, method="POST")
-            req.add_header('Authorization', 'Bearer ' + self.token)
-            req.add_header('Content-Type', 'application/json')
-            with request.urlopen(req) as response:
-                return json.loads(self.handle_response(response))
-        except URLError as e:
-            LOG.error('Unable to connect to Polarion API: %s', str(e))
-            return None
-        except RemoteDisconnected:
-            LOG.error('Polarion disconnected or timed out')
-            return None
-        except JSONDecodeError:
-            LOG.error('Polarion API response contains invalid JSON')
-            return None
+    def call(self, method, path, body=None):
+        data = None if body == None else json.dumps(body).encode("utf8")
     
-    def workitem_add_list(self, findings: list[Finding], workitems: list):
-        sigrid_workitems = list(filter(self.is_sigrid_workitem, workitems))
-        print("workitems", workitems)
+        try:
+            request = urllib.request.Request(f"{self.baseURL}{path}", data=data, method=method)
+            request.add_header("Content-Type", "application/json")
+            request.add_header("Accept", "application/json")
+            request.add_header("Authorization", f"Bearer {self.token}")
+            response = json.loads(urllib.request.urlopen(request).read().decode("utf-8"))
+            return response
+        except urllib.error.HTTPError as e:
+            print("-" * 80)
+            print(f"Polarion API failed with HTTP status {e.status} for {path}")
+            print("-" * 80)
+            print(e.read().decode("utf8"))
+     
+    def listWorkItems(self):
+        return self.call("GET", f"/projects/{self.projectId}/workitems")
         
-        return list(map(self.create_work_item, findings))
+    def checkWorkItemExists(self, fingerprint):
+        encodedFingerprint = urllib.parse.quote(fingerprint.encode("utf8"))
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=fingerprint%3A{encodedFingerprint}")
+        return "data" in response and len(response["data"]) > 0
+        
+    def createWorkItems(self, workItems):
+        body = {"data" : workItems}
+        return self.call("POST", f"/projects/{self.projectId}/workitems", body)
+        
+    def linkWorkItems(self, workItemId, links):
+        body = {"data" : links}
+        return self.call("POST", f"/projects/{self.projectId}/workitems/{workItemId}/linkedworkitems", body)
 
-    
     @staticmethod
     def create_work_item(finding: Finding):
         if finding.status == "RAW":
@@ -151,32 +141,6 @@ class PolarionApiClient:
                     }
         else:
             return None
-
-    @staticmethod
-    def is_sigrid_workitem(workitem) -> bool:
-        return True
-
-
-    @staticmethod
-    def handle_response(response):
-        if response.status == 200:
-            res = response.read().decode('utf-8')
-            LOG.info('[200] Polarion returned JSON (length: %s chars)', len(res))
-            return res
-        elif response.status == 201:
-            res = response.read()
-            LOG.info('[201] Polarion returned JSON (length: %s chars)', len(res))
-            return res
-        else:
-            LOG.error('Polarion returned status code %s', response.status)
-            return None
-        
-    @staticmethod
-    def is_valid_token(token):
-        return token is not None
-
-def filter_finding(finding: Finding) -> bool:
-    return True
 
 
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
@@ -223,25 +187,19 @@ if __name__ == "__main__":
         sys.exit(1)
 
     sigrid_authentication_token = os.getenv('SIGRID_CI_TOKEN')
-    if not SigridApiClient.is_valid_token(sigrid_authentication_token):
+    if not sigrid_authentication_token:
         print('Missing or incomplete environment variable SIGRID_CI_TOKEN')
         sys.exit(1)
 
     polarion_authentication_token = os.getenv('POLARION_API_TOKEN')
-    if not PolarionApiClient.is_valid_token(polarion_authentication_token):
+    if not polarion_authentication_token:
         print('Missing or incomplete environment variable POLARION_API_TOKEN')
         sys.exit(1)
 
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
-    all_findings = sigrid.get_security_findings()
-    processed_findings = process_findings(all_findings, filter_finding)
+    all_security_findings = process_findings(sigrid.get_security_findings(), lambda x: True)
 
-    polarion = PolarionApiClient(args.polarionproject, polarion_authentication_token)
-
-    polarion_workitems = polarion.retreive()
-
-    workitems_to_add = polarion.workitem_add_list(processed_findings, polarion_workitems)
-    # polarion.post(json.dumps({"data": workitems_to_add}).encode('utf-8'))
-
+    polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
+    polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject)
