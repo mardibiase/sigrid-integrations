@@ -86,6 +86,35 @@ def generateGroupedObjectivesTrendChart(calculator, type, systemFilter, outputFi
     chart.render_to_file(outputFile)
     
     
+def generateOverallObjectivesBarChart(calculator, systemFilter, outputFile):
+    periods = calculator.periods
+    metadata = calculator.metadata
+    trend = {period: calculator.calculateStatus(systemFilter.apply(calculator.trend[period], metadata)) for period in periods}
+    
+    chart = StackedBar(width=600, height=400, range=(0, 100), style=getChartStyle(STATUS_COLORS), legend_at_bottom=True)
+    chart.title = "Sigrid objective trend"
+    chart.x_labels = [period.start.strftime("%m/%Y") for period in periods]        
+    chart.value_formatter = lambda value: f"{round(value)}%"
+    chart.add("Complete", [trend[period][Status.COMPLETE] for period in periods])
+    chart.add("Incomplete", [trend[period][Status.INCOMPLETE] for period in periods])
+    chart.add("Not covered", [trend[period][Status.NA] for period in periods])
+    chart.render_to_file(outputFile)
+    
+    
+def generateOverallObjectivesLineChart(calculator, systemFilter, outputFile):
+    periods = calculator.periods
+    metadata = calculator.metadata
+    
+    chart = Line(width=600, height=400, range=(0, 100), style=getChartStyle(TEAM_COLORS), legend_at_bottom=True)
+    chart.title = "Sigrid objective trend"
+    chart.x_labels = [period.start.strftime("%m/%Y") for period in periods]        
+    chart.value_formatter = lambda value: f"{round(value)}%"
+    for type in calculator.getAvailableObjectiveTypes(calculator.status):
+        trend = {period: calculator.calculateStatus(systemFilter.apply(calculator.trend[period], metadata), type) for period in periods}
+        chart.add(OBJECTIVE_TYPES[type], [trend[period][Status.COMPLETE] for period in periods])
+    chart.render_to_file(outputFile) 
+    
+    
 def generateMetadataCompletionChart(calculator, group, outputFile):
     groups = calculator.groupSystems(calculator.status, group)
     countMetadataComplete = lambda systems: sum(1 for system in systems if calculator.isMetadataComplete(system))
@@ -98,19 +127,7 @@ def generateMetadataCompletionChart(calculator, group, outputFile):
     chart.add("With metadata", withMetadata)
     chart.add("Without metadata", withoutMetadata)
     chart.render_to_file(outputFile)
-    
-    
-def generateRadarChart(name, systems, outputFile):
-    types = calculator.getAvailableObjectiveTypes(systems)
-    status = [calculator.calculateStatus(systems, type)[Status.COMPLETE] for type in types]
-
-    chart = Radar(width=400, height=400, style=getChartStyle(STATUS_COLORS), range=(0, 100), legend_at_bottom=True)
-    chart.title = f"Sigrid objectives status for {name}"
-    chart.x_labels = [OBJECTIVE_TYPES[type] for type in types]
-    chart.value_formatter = lambda value: f"{round(value)}%"
-    chart.add("Complete", status)
-    chart.render_to_file(outputFile)
-    
+     
     
 def generateObjectivesBreakdownChart(calculator, type, groupedSystems, outputFile):
     periods = calculator.periods
@@ -169,10 +186,6 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=str, default=os.getcwd(), help="Output directory path.")
     parser.add_argument("--sigridurl", type=str, default="https://sigrid-says.com")
     args = parser.parse_args()
-    
-    if None in [args.customer]:
-        parser.print_help()
-        sys.exit(1)
         
     if not os.environ.get("SIGRID_CI_TOKEN"):
         print("Missing Sigrid API token in environment variable SIGRID_CI_TOKEN")
@@ -185,6 +198,9 @@ if __name__ == "__main__":
     divisions = calculator.groupSystems(calculator.status, Group.DIVISION)
     teams = calculator.groupSystems(calculator.status, Group.TEAM)    
     outputDir = createOutputDir(os.path.expanduser(args.out), args.customer)
+    
+    generateOverallObjectivesBarChart(calculator, SystemFilter(), f"{outputDir}/all-trend-bar.svg")
+    generateOverallObjectivesLineChart(calculator, SystemFilter(), f"{outputDir}/all-trend-line.svg")
         
     for type in calculator.getAvailableObjectiveTypes(calculator.status):
         generateGroupedObjectivesTrendChart(calculator, type, SystemFilter(), f"{outputDir}/trend-{type.lower()}.svg")
@@ -193,14 +209,12 @@ if __name__ == "__main__":
 
     for division, systems in divisions.items():
         divisionDir = createOutputDir(outputDir, "Division " + division)
-        generateRadarChart(division, systems, f"{divisionDir}/radar.svg")
         for type in calculator.getAvailableObjectiveTypes(systems):
             systemFilter = SystemFilter(division=division)
             generateGroupedObjectivesTrendChart(calculator, type, systemFilter, f"{divisionDir}/trend-{type.lower()}.svg")
     
     for team, systems in teams.items():
         teamDir = createOutputDir(outputDir, "Team " + team)
-        generateRadarChart(team, systems, f"{teamDir}/radar.svg")
         for type in calculator.getAvailableObjectiveTypes(systems):
             systemFilter = SystemFilter(team=team)
             generateGroupedObjectivesTrendChart(calculator, type, systemFilter, f"{teamDir}/trend-{type.lower()}.svg")
