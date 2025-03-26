@@ -23,15 +23,19 @@ import urllib.request
 from argparse import ArgumentParser
 
 
-def fetchIssues(baseURL, entity, slug):
+def sendMultipartRequest(url):
     for page in itertools.count(start=1):
-        url = f"{baseURL}/api/v4/{entity}/{slug}/issues?scope=all&state=all&page={page}&per_page=100"
-        request = urllib.request.Request(url)
+        request = urllib.request.Request(f"{url}&page={page}&per_page=100")
         request.add_header("PRIVATE-TOKEN", os.environ["GITLAB_API_TOKEN"])
         with urllib.request.urlopen(request) as response:
             yield from json.loads(response.read().decode("utf8"))
             if not response.headers.get("X-Next-Page"):
                 break
+
+
+def fetchIssues(baseURL, entity, slug):
+    url = f"{baseURL}/api/v4/{entity}/{slug}/issues?scope=all&state=all"
+    yield from sendMultipartRequest(url)
 
 
 if __name__ == "__main__":
