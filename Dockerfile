@@ -4,7 +4,7 @@ COPY export-portfolio-dependencies/ /integrations/export-portfolio-dependencies
 COPY get-scope-file/ /integrations/get-scope-file
 COPY issue-tracker-export/ /integrations/issue-tracker-export
 COPY objectives-report/ /integrations/objectives-report
-COPY polation-integration/ /integrations/polarion-integration
+COPY polarion-integration/ /integrations/polarion-integration
 COPY report-generator/ /sources/report-generator
 
 RUN apk add --no-cache \
