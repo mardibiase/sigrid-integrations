@@ -88,10 +88,11 @@ class PolarionApiClient:
         "LOW" : "Nice to Have"
     }
 
-    def __init__(self, baseURL, token, projectId):
+    def __init__(self, baseURL, token, projectId, systemWorkItemId):
         self.baseURL = baseURL
         self.token = token
         self.projectId = urllib.parse.quote(projectId.encode("utf8"))
+        self.systemWorkItemId = systemWorkItemId
 
     def call(self, method, path, body=None):
         data = None if body == None else json.dumps(body).encode("utf8")
@@ -108,22 +109,19 @@ class PolarionApiClient:
             print(f"Polarion API failed with HTTP status {e.status} for {path}")
             print("-" * 80)
             print(e.read().decode("utf8"))
-     
-    def listWorkItems(self):
-        return self.call("GET", f"/projects/{self.projectId}/workitems")
     
-    def isNewFinding(self, finding: Finding):
+    def is_new_finding(self, finding: Finding) -> bool:
         response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
         return not ("data" in response and len(response["data"]) > 0)
         
-    def createWorkItems(self, workItems):
+    def get_work_item_id(self, finding: Finding) -> str: 
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
+        return response['data'][0]['id'].split("/")[1]
+
+    def create_work_items(self, workItems):
         body = {"data" : workItems}
         return self.call("POST", f"/projects/{self.projectId}/workitems", body)
         
-    def linkWorkItems(self, workItemId, links):
-        body = {"data" : links}
-        return self.call("POST", f"/projects/{self.projectId}/workitems/{workItemId}/linkedworkitems", body)
-
     def create_work_item(self, finding: Finding):
         if finding.status == "RAW":
             return {
@@ -131,7 +129,7 @@ class PolarionApiClient:
                         "attributes": {
                             "title": f"Sigrid - {finding.type}",
                             "type": "sigridsecurityissue",
-                            "priority": str(finding.severity_score*10),
+                            "priority": "50", # str(finding.severity_score*10),
                             "description": {
                                 "type": "text/html",
                                 "value": f"Sigrid security finding: {finding}"
@@ -152,7 +150,28 @@ class PolarionApiClient:
         else:
             return None
 
-    def filterSecurityFindings(self, finding: Finding):
+    def link_findings_to_system_workitem(self, findings) -> None:
+        for finding in findings:
+            polarion.link_workitem_to_system_workitem(self.get_work_item_id(finding))
+
+    def link_workitem_to_system_workitem(self, workItemId):
+        body = {"data" : [{
+            "type" : "linkedworkitems",
+            "attributes" : {
+                "role" : "relates_to"
+            },
+            "relationships" : {
+                "workItem" : {
+                    "data" : {
+                        "type" : "workitems",
+                        "id" : self.projectId + "/" + self.systemWorkItemId
+                    }
+                }
+            }
+        }]}
+        return self.call("POST", f"/projects/{self.projectId}/workitems/{workItemId}/linkedworkitems", body)   
+
+    def filter_security_findings(self, finding: Finding) -> bool:
         return finding.severity != "INFORMATION"
 
 
@@ -180,22 +199,12 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
     else:
         return sorted(result, key=lambda x: (x.severity_score, x.first_seen_snapshot_date), reverse=True)
 
-
-def get_filename(file_path: Union[str, None]) -> str:
-    if not file_path:
-        return ''
-    else:
-        if file_path.endswith('/'):
-            file_path = file_path[:-1]
-        parts = file_path.split('/')
-        return parts[-1]
-
-
 if __name__ == "__main__":
     parser = ArgumentParser(description='Gets open security findings and post them to Slack.')
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
     parser.add_argument('--system', type=str, required=True, help='Name of your system in Sigrid, letters/digits/hyphens only.')
     parser.add_argument('--polarionproject', type=str, required=True, help='Id of your project in Polation.')
+    parser.add_argument('--systemworkitem', type=str, required=True, help="All findings will be linked to this workitem. Recommended to be a Release.")
     args = parser.parse_args()
 
     if sys.version_info.major == 2 or sys.version_info.minor < 9:
@@ -217,9 +226,12 @@ if __name__ == "__main__":
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
 
     polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
-    polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject)
+    polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
-    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filterSecurityFindings)[:5]
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
 
-    new_security_findings = list(filter(polarion.isNewFinding, all_security_findings))
-    polarion.createWorkItems(list(map(polarion.create_work_item, new_security_findings)))
+    new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
+    workitems = list(map(polarion.create_work_item, new_security_findings))
+    polarion.create_work_items(workitems)
+
+    polarion.link_findings_to_system_workitem(new_security_findings)
