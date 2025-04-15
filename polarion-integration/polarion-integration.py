@@ -18,20 +18,23 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from http.client import RemoteDisconnected
 from json import JSONDecodeError
 from typing import Callable, Any, Union
-from urllib import request
+import urllib.parse
+import urllib.request
+import urllib.error
 from urllib.error import URLError
 import logging
-from argparse import ArgumentParser, BooleanOptionalAction
+from argparse import ArgumentParser
 
 LOG = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Finding:
+    id: str
     href: str
     first_seen_snapshot_date: date
     file_path: str
@@ -41,19 +44,21 @@ class Finding:
     severity: str
     severity_score: float
     status: str
-
+    component: str
+    cweId: str
 
 class SigridApiClient:
-
+    
     def __init__(self, customer: str, system: str, token: str):
-        self.sigrid_api = f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{customer.lower()}/{system.lower()}'
+        self.customer = customer.lower()
+        self.system = system.lower()
         self.token = token
 
-    def get_findings(self) -> Union[Any, None]:
+    def get_security_findings(self) -> Union[Any, None]:
         try:
-            req = request.Request(self.sigrid_api)
+            req = urllib.request.Request(f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{self.customer}/{self.system}')
             req.add_header('Authorization', 'Bearer ' + self.token)
-            with request.urlopen(req) as response:
+            with urllib.request.urlopen(req) as response:
                 return json.loads(self.handle_response(response))
         except URLError as e:
             LOG.error('Unable to connect to Sigrid API: %s', str(e))
@@ -69,34 +74,104 @@ class SigridApiClient:
     def handle_response(response):
         if response.status == 200:
             findings = response.read().decode('utf-8')
-            LOG.info('Sigrid returned findings JSON (length: %s chars)', len(findings))
+            LOG.info('Sigrid returned JSON (length: %s chars)', len(findings))
             return findings
         else:
             LOG.error('Sigrid returned status code %s', response.status)
             return None
 
-    @staticmethod
-    def is_valid_token(token):
-        return token is not None and len(token) >= 64
-    
+class PolarionApiClient:
+    SEVERITY_MAPPING = {
+        "CRITICAL" : "Must Have",
+        "HIGH" : "Should Have",
+        "MEDIUM" : "Nice to Have",
+        "LOW" : "Nice to Have"
+    }
 
-def filter_finding(finding: Finding) -> bool:
-    return True
+    def __init__(self, baseURL, token, projectId):
+        self.baseURL = baseURL
+        self.token = token
+        self.projectId = urllib.parse.quote(projectId.encode("utf8"))
+
+    def call(self, method, path, body=None):
+        data = None if body == None else json.dumps(body).encode("utf8")
+    
+        try:
+            request = urllib.request.Request(f"{self.baseURL}{path}", data=data, method=method)
+            request.add_header("Content-Type", "application/json")
+            request.add_header("Accept", "application/json")
+            request.add_header("Authorization", f"Bearer {self.token}")
+            response = json.loads(urllib.request.urlopen(request).read().decode("utf-8"))
+            return response
+        except urllib.error.HTTPError as e:
+            print("-" * 80)
+            print(f"Polarion API failed with HTTP status {e.status} for {path}")
+            print("-" * 80)
+            print(e.read().decode("utf8"))
+     
+    def listWorkItems(self):
+        return self.call("GET", f"/projects/{self.projectId}/workitems")
+    
+    def isNewFinding(self, finding: Finding):
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
+        return not ("data" in response and len(response["data"]) > 0)
+        
+    def createWorkItems(self, workItems):
+        body = {"data" : workItems}
+        return self.call("POST", f"/projects/{self.projectId}/workitems", body)
+        
+    def linkWorkItems(self, workItemId, links):
+        body = {"data" : links}
+        return self.call("POST", f"/projects/{self.projectId}/workitems/{workItemId}/linkedworkitems", body)
+
+    def create_work_item(self, finding: Finding):
+        if finding.status == "RAW":
+            return {
+                        "type": "workitems",
+                        "attributes": {
+                            "title": f"Sigrid - {finding.type}",
+                            "type": "sigridsecurityissue",
+                            "priority": str(finding.severity_score*10),
+                            "description": {
+                                "type": "text/html",
+                                "value": f"Sigrid security finding: {finding}"
+                            },
+                            "hyperlinks": [
+                            {
+                                "role": "ref_ext",
+                                "uri": finding.href
+                            }
+                            ],
+                            "severity": self.SEVERITY_MAPPING[finding.severity],
+                            "status": "open",
+                            "CWE": finding.cweId,
+                            "findingid": finding.id
+                        },
+                        "relationships" : {}
+                    }
+        else:
+            return None
+
+    def filterSecurityFindings(self, finding: Finding):
+        return finding.severity != "INFORMATION"
 
 
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
     result = []
     for raw_finding in findings:
         finding = Finding(
-            raw_finding['href'],
-            date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
-            raw_finding['filePath'],
-            raw_finding['startLine'],
-            raw_finding['endLine'],
-            raw_finding['type'],
-            raw_finding['severity'],
-            raw_finding['severityScore'],
-            raw_finding['status']
+            id=raw_finding['id'],
+            href=raw_finding['href'],
+            first_seen_snapshot_date=date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
+            file_path=raw_finding['filePath'],
+            start_line=raw_finding['startLine'],
+            end_line=raw_finding['endLine'],
+            type=raw_finding['type'],
+            severity=raw_finding['severity'],
+            severity_score=raw_finding['severityScore'],
+            status=raw_finding['status'],
+            component=raw_finding['component'],
+            cweId=raw_finding['cweId']
         )
         if include(finding):
             result.append(finding)
@@ -116,12 +191,11 @@ def get_filename(file_path: Union[str, None]) -> str:
         return parts[-1]
 
 
-
-
 if __name__ == "__main__":
     parser = ArgumentParser(description='Gets open security findings and post them to Slack.')
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
     parser.add_argument('--system', type=str, required=True, help='Name of your system in Sigrid, letters/digits/hyphens only.')
+    parser.add_argument('--polarionproject', type=str, required=True, help='Id of your project in Polation.')
     args = parser.parse_args()
 
     if sys.version_info.major == 2 or sys.version_info.minor < 9:
@@ -129,13 +203,23 @@ if __name__ == "__main__":
         sys.exit(1)
 
     sigrid_authentication_token = os.getenv('SIGRID_CI_TOKEN')
-    if not SigridApiClient.is_valid_token(sigrid_authentication_token):
+    if not sigrid_authentication_token:
         print('Missing or incomplete environment variable SIGRID_CI_TOKEN')
+        sys.exit(1)
+
+    polarion_authentication_token = os.getenv('POLARION_API_TOKEN')
+    if not polarion_authentication_token:
+        print('Missing or incomplete environment variable POLARION_API_TOKEN')
         sys.exit(1)
 
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
-    all_findings = sigrid.get_findings()
-    processed_findings = process_findings(all_findings, filter_finding)
-    print(processed_findings)
+
+    polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
+    polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject)
+
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filterSecurityFindings)[:5]
+
+    new_security_findings = list(filter(polarion.isNewFinding, all_security_findings))
+    polarion.createWorkItems(list(map(polarion.create_work_item, new_security_findings)))
