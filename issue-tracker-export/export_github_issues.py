@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dateutil.parser
 import itertools
 import json
 import os
@@ -23,16 +24,41 @@ import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
 
+from issue_data import Issue
+from issue_data_serializer import IssueDataSerializer
+
 
 def fetchIssues(apiBaseURL, org, repo):
-    url = f"{apiBaseURL}/repos/{org}/{repo}/issues"
+    url = f"{apiBaseURL}/repos/{org}/{repo}/issues?state=all"
     while url is not None:
         request = urllib.request.Request(url)
         request.add_header("Authorization", f"Bearer: {os.environ['GITHUB_API_TOKEN']}")
         with urllib.request.urlopen(request) as response:
-            yield from json.loads(response.read().decode("utf8"))
+            issues = json.loads(response.read().decode("utf8"))
+            for issue in issues:
+                yield parseIssue(org, repo, issue)
             link = re.compile("<(\\S+?)>; rel=\"next\"").search(response.headers.get("link", ""))
             url = link.group(1) if link else None
+
+
+def parseDate(value):
+    if value in (None, "", "None"):
+        return None
+    return dateutil.parser.isoparse(value)
+
+
+def parseIssue(org, repo, issue):
+    return Issue(
+        project=f"{org}/{repo}",
+        title=issue["title"],
+        status=issue["state"],
+        created=parseDate(issue["created_at"]),
+        closed=parseDate(issue["closed_at"]),
+        author=issue["user"]["login"],
+        assignee=issue["assignee"]["login"] if issue["assignee"] else None,
+        epic=None,
+        labels=[label["name"] for label in issue["labels"]]
+    )
 
 
 if __name__ == "__main__":
@@ -49,13 +75,7 @@ if __name__ == "__main__":
 
     repoIssues = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in args.repo.split(",")]
     issues = list(itertools.chain(*repoIssues))
-
     outputDir = os.path.expanduser(args.out)
-    os.makedirs(outputDir, exist_ok=True)
-    outputFile = f"{outputDir}/github-issues.json"
 
-    with open(outputFile, "w", encoding="utf8") as f:
-        issueData = {"issues" : issues}
-        json.dump(issueData, f, indent=4)
-
-    print(f"Exported issue data to {outputFile}")
+    IssueDataSerializer.serialize("GitHub", issues, outputDir)
+    print(f"Exported {len(issues)} issues to {outputDir}")

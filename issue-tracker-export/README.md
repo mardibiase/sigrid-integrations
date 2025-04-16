@@ -48,6 +48,24 @@ These scripts will export the issue tracker data to a location where it can be p
 [Sigrid CI](https://docs.sigrid-says.com/sigridci-integration/gitlab.html). Therefore, you should run this step 
 *before* you run the Sigrid CI step in your pipeline configuration.
 
+## What issue tracker data is published to Sigrid?
+
+The issue tracker integration exports issues in a generic format, which is then published to Sigrid. 
+The following information is exported for each issue:
+
+  - Project name
+  - Title
+  - Status
+  - Created date
+  - Closed date
+  - Author
+  - Assignee
+  - Epic title
+  - List of labels
+
+The name of the author and assignee are anonymized into an SHA-256 hash. This means the original names are never
+published to Sigrid.
+
 ## License
 
 Copyright Software Improvement Group

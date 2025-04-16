@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dateutil.parser
 import itertools
 import json
 import os
@@ -21,6 +22,9 @@ import sys
 import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
+
+from issue_data import Issue, IssueTrackerData
+from issue_data_serializer import IssueDataSerializer
 
 
 def sendMultipartRequest(url):
@@ -33,9 +37,36 @@ def sendMultipartRequest(url):
                 break
 
 
-def fetchIssues(baseURL, entity, slug):
-    url = f"{baseURL}/api/v4/{entity}/{slug}/issues?scope=all&state=all"
-    yield from sendMultipartRequest(url)
+def fetchIssues(baseURL, groups, projects):
+    for group in groups:
+        slug = urllib.parse.quote_plus(group)
+        for issue in sendMultipartRequest(f"{baseURL}/api/v4/groups/{slug}/issues?scope=all&state=all"):
+            yield parseIssue(issue)
+
+    for project in projects:
+        slug = urllib.parse.quote_plus(project)
+        for issue in sendMultipartRequest(f"{baseURL}/api/v4/projects/{slug}/issues?scope=all&state=all"):
+            yield parseIssue(issue)
+    
+
+def parseDate(value):
+    if value in (None, "", "None"):
+        return None
+    return dateutil.parser.isoparse(value)
+
+
+def parseIssue(issue):
+    return Issue(
+        project=issue["references"]["full"].split("#")[0],
+        title=issue["title"],
+        status=issue["state"],
+        created=parseDate(issue["created_at"]),
+        closed=parseDate(issue["closed_at"]),
+        author=issue["author"]["name"],
+        assignee=issue["assignee"]["name"] if issue["assignee"] else None,
+        epic=issue["epic"]["title"] if issue["epic"] else None,
+        labels=issue["labels"]
+    )
 
 
 if __name__ == "__main__":
@@ -50,18 +81,10 @@ if __name__ == "__main__":
         print("Missing environment variable GITLAB_API_TOKEN")
         sys.exit(1)
 
-    issues = []
-    for group in args.group.split("," if args.group else None):
-        issues += list(fetchIssues(args.gitlab_base_url, "groups", urllib.parse.quote_plus(group)))
-    for project in args.project.split("," if args.project else None):
-        issues += list(fetchIssues(args.gitlab_base_url, "projects", urllib.parse.quote_plus(project)))
-
+    groups = args.group.split("," if args.group else None)
+    projects = args.project.split("," if args.project else None)
     outputDir = os.path.expanduser(args.out)
-    os.makedirs(outputDir, exist_ok=True)
-    outputFile = f"{outputDir}/gitlab-issues.json"
 
-    with open(outputFile, "w", encoding="utf8") as f:
-        issueData = {"issues" : issues}
-        json.dump(issueData, f, indent=4)
-
-    print(f"Exported issue data to {outputFile}")
+    issues = list(fetchIssues(args.gitlab_base_url, groups, projects))
+    IssueDataSerializer.serialize("GitLab", issues, outputDir)
+    print(f"Exported {len(issues)} issues to {outputDir}")
