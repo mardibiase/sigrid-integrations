@@ -203,7 +203,8 @@ if __name__ == "__main__":
     parser = ArgumentParser(description='Gets open security findings and post them to Slack.')
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
     parser.add_argument('--system', type=str, required=True, help='Name of your system in Sigrid, letters/digits/hyphens only.')
-    parser.add_argument('--polarionproject', type=str, required=True, help='Id of your project in Polation.')
+    parser.add_argument('--polarionurl', type=str, required=True, help='Polarion URL. E.g., "https://my-company.polarion.com"')
+    parser.add_argument('--polarionproject', type=str, required=True, help='Id of your project in Polarion.')
     parser.add_argument('--systemworkitem', type=str, required=True, help="All findings will be linked to this workitem. Recommended to be a Release.")
     args = parser.parse_args()
 
@@ -225,7 +226,7 @@ if __name__ == "__main__":
 
     sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
 
-    polarionURL = "https://industry-solutions.polarion.com/polarion/rest/v1"
+    polarionURL = args.polarionurl + "/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
     all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
