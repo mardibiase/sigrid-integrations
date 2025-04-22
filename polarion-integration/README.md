@@ -1,4 +1,17 @@
 # Sigrid-Polarion Integration
+Adds Sigrid security findings to Polarion.
+
+To run, run `./polarion-integration.py` with the following flags:
+--customer: Name of the customer in Sigrid
+--system: Name of the system in Sigrid
+--polarionurl: URL to Polarion, for example https://my-company.polarion.com
+--polarionproject: Name of the Polarion project, for example MyProject
+--systemworkitem: Workitem ID for the Sigrid system. All security findings will be linked to this workitem. Recommended to be a Release.
+
+In order to run, the SigridCI token and Polarion API token should be stored in environment variables `SIGRID_CI_TOKEN` and `POLARION_API_TOKEN` respectively.
+
+This script only adds non-existing Sigrid security findings to Polarion. It does not yet remove or update workitems. 
+
 
 ## License
 
