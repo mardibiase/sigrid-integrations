@@ -127,8 +127,8 @@ class PolarionApiClient:
             return {
                         "type": "workitems",
                         "attributes": {
-                            "title": f"Sigrid - {finding.type}",
-                            "type": "sigridsecurityissue",
+                            "title": f"{finding.type}",
+                            "type": "sbomsecurityissue",
                             "priority": "50", # str(finding.severity_score*10),
                             "description": {
                                 "type": "text/html",
@@ -141,8 +141,7 @@ class PolarionApiClient:
                             }
                             ],
                             "severity": self.SEVERITY_MAPPING[finding.severity],
-                            "status": "open",
-                            "CWE": finding.cweId,
+                            "cwe": finding.cweId,
                             "findingid": finding.id
                         },
                         "relationships" : {}
@@ -158,13 +157,13 @@ class PolarionApiClient:
         body = {"data" : [{
             "type" : "linkedworkitems",
             "attributes" : {
-                "role" : "relates_to"
+                "role" : "impacts"
             },
             "relationships" : {
                 "workItem" : {
                     "data" : {
                         "type" : "workitems",
-                        "id" : self.projectId + "/" + self.systemWorkItemId
+                        "id" : self.systemWorkItemId
                     }
                 }
             }
@@ -204,8 +203,8 @@ if __name__ == "__main__":
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
     parser.add_argument('--system', type=str, required=True, help='Name of your system in Sigrid, letters/digits/hyphens only.')
     parser.add_argument('--polarionurl', type=str, required=True, help='Polarion URL. E.g., "https://my-company.polarion.com"')
-    parser.add_argument('--polarionproject', type=str, required=True, help='Id of your project in Polarion.')
-    parser.add_argument('--systemworkitem', type=str, required=True, help="All findings will be linked to this workitem. Recommended to be a Release.")
+    parser.add_argument('--polarionproject', type=str, required=True, help='Id of your SBOM project in Polarion.')
+    parser.add_argument('--systemworkitem', type=str, required=True, help="All findings will be linked to this workitem. Recommended to be a Release. Formatted as project/workitemid.")
     args = parser.parse_args()
 
     if sys.version_info.major == 2 or sys.version_info.minor < 9:
