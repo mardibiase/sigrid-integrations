@@ -175,6 +175,10 @@ class PolarionApiClient:
 
         self.create_work_items(new_components_workitems)
 
+        # link components to release
+
+        # link findings to component
+
     def link_workitems(self, workItemId, role):
         body = {"data" : [{
             "type" : "linkedworkitems",
