@@ -113,16 +113,35 @@ class PolarionApiClient:
     def is_new_finding(self, finding: Finding) -> bool:
         response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
         return not ("data" in response and len(response["data"]) > 0)
-        
-    def get_work_item_id(self, finding: Finding) -> str: 
-        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
-        return response['data'][0]['id'].split("/")[1]
+
+    def is_new_component(self, componentName, componentVersion) -> bool:
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=componentName%3A{componentName}")
+        return not ("data" in response and len(response["data"]) > 0)
 
     def create_work_items(self, workItems):
         body = {"data" : workItems}
         return self.call("POST", f"/projects/{self.projectId}/workitems", body)
-        
-    def create_work_item(self, finding: Finding):
+
+    def create_sbom_component(self, componentName, componentVersion):
+        return {
+                        "type": "workitems",
+                        "attributes": {
+                            "title": f"{componentName}-{componentVersion}",
+                            "type": "sbomcomponent",
+                            "priority": "50", 
+                            "description": {
+                                "type": "text/html",
+                                "value": f""
+                            },
+                            "componentName": componentName,
+                            "componentVersion": componentVersion,
+                            "componentPURL": "todo"
+                        },
+                        "relationships" : {}
+                    }
+
+
+    def create_sbom_security_finding(self, finding: Finding):
         if finding.status == "RAW":
             return {
                         "type": "workitems",
@@ -148,16 +167,19 @@ class PolarionApiClient:
                     }
         else:
             return None
+        
+    def link_findings_to_components(self, findings: list[Finding]):
+        component_names = list(set(map(lambda x: x.component, findings)))
+        new_components_names = list(filter(lambda x: self.is_new_component(x, "version"), component_names))
+        new_components_workitems = list(map(lambda x: self.create_sbom_component(x, "version"), new_components_names))
 
-    def link_findings_to_system_workitem(self, findings) -> None:
-        for finding in findings:
-            polarion.link_workitem_to_system_workitem(self.get_work_item_id(finding))
+        self.create_work_items(new_components_workitems)
 
-    def link_workitem_to_system_workitem(self, workItemId):
+    def link_workitems(self, workItemId, role):
         body = {"data" : [{
             "type" : "linkedworkitems",
             "attributes" : {
-                "role" : "impacts"
+                "role" : role
             },
             "relationships" : {
                 "workItem" : {
@@ -228,10 +250,10 @@ if __name__ == "__main__":
     polarionURL = args.polarionurl + "/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
-    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)[0:3]
 
     new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
-    workitems = list(map(polarion.create_work_item, new_security_findings))
-    polarion.create_work_items(workitems)
+    sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
+    polarion.create_work_items(sbom_findings)
 
-    polarion.link_findings_to_system_workitem(new_security_findings)
+    polarion.link_findings_to_components(new_security_findings)
