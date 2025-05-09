@@ -114,9 +114,19 @@ class PolarionApiClient:
         response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
         return not ("data" in response and len(response["data"]) > 0)
 
+    def get_finding_id(self, finding: Finding) -> str:
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
+        return response["data"][0]["id"]
+
     def is_new_component(self, componentName, componentVersion) -> bool:
-        response = self.call("GET", f"/projects/{self.projectId}/workitems?query=componentName%3A{componentName}")
+        query = f"componentName%3A{componentName}%20AND%20componentVersion%3A{componentVersion}"
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query={query}")
         return not ("data" in response and len(response["data"]) > 0)
+    
+    def get_component_id(self, componentName, componentVersion) -> str:
+        query = f"componentName%3A{componentName}%20AND%20componentVersion%3A{componentVersion}"
+        response = self.call("GET", f"/projects/{self.projectId}/workitems?query={query}")
+        return response["data"][0]["id"]
 
     def create_work_items(self, workItems):
         body = {"data" : workItems}
@@ -170,16 +180,27 @@ class PolarionApiClient:
         
     def link_findings_to_components(self, findings: list[Finding]):
         component_names = list(set(map(lambda x: x.component, findings)))
-        new_components_names = list(filter(lambda x: self.is_new_component(x, "version"), component_names))
-        new_components_workitems = list(map(lambda x: self.create_sbom_component(x, "version"), new_components_names))
+        component_names = list(map(lambda x: "remainder" if x is None else x, component_names))
+        new_components_names = list(filter(lambda x: self.is_new_component(x, "sigrid"), component_names))
+        new_components_workitems = list(map(lambda x: self.create_sbom_component(x, "sigrid"), new_components_names))
 
         self.create_work_items(new_components_workitems)
 
-        # link components to release
+        list(map(self.link_component_to_release, new_components_workitems))
 
-        # link findings to component
+        list(map(self.link_finding_to_component, findings))
 
-    def link_workitems(self, workItemId, role):
+    def link_component_to_release(self, component):
+        component_id = self.get_component_id(component["attributes"]["componentName"], component["attributes"]["componentVersion"]).split("/")[-1]
+        self.create_workitem_links(component_id, self.systemWorkItemId, "containedIn")
+
+    def link_finding_to_component(self, finding: Finding):
+        finding_id = self.get_finding_id(finding).split("/")[-1]
+        component_name = "remainder" if finding.component is None else finding.component
+        component_id = self.get_component_id(component_name, "sigrid")
+        self.create_workitem_links(finding_id, component_id, "impacts")
+
+    def create_workitem_links(self, fro, to, role):
         body = {"data" : [{
             "type" : "linkedworkitems",
             "attributes" : {
@@ -189,12 +210,13 @@ class PolarionApiClient:
                 "workItem" : {
                     "data" : {
                         "type" : "workitems",
-                        "id" : self.systemWorkItemId
+                        "id" : to
                     }
                 }
             }
         }]}
-        return self.call("POST", f"/projects/{self.projectId}/workitems/{workItemId}/linkedworkitems", body)   
+        
+        return self.call("POST", f"/projects/{self.projectId}/workitems/{fro}/linkedworkitems", body)   
 
     def filter_security_findings(self, finding: Finding) -> bool:
         return finding.severity != "INFORMATION"
