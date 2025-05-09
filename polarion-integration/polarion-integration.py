@@ -254,7 +254,7 @@ if __name__ == "__main__":
     polarionURL = args.polarionurl + "/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
-    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)[0:3]
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
 
     new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
     sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
