@@ -36,10 +36,12 @@ step *before* you run the Sigrid CI step in your pipeline configuration.
 You can export your GitLab issues from your pipeline using these scripts. Depending on your environment, you can
 either clone this repository and then run the script, or you can run the script via the Docker container.
 
-    ./export_gitlab_issues.py --gitlab-base-url https://code.example.com --project aap/noot
+    ./export_gitlab_issues.py --gitlab-base-url https://code.example.com [--project namespace/name | --group group_name]
 
-The `--gitlab-base-url` points to your GitLab. The `--project` argument accepts either a GitLab project or a GitLab
-group. You can also provide multiple projects or groups by providing a comma-separated list.
+- `--gitlab-base-url`: Specify the base URL of your GitLab instance, including `https://`.
+- `--project`: Provide a GitLab project name or ID. You can specify multiple projects using a comma-separated list.
+- `--group`: Provide a GitLab group name or ID. You can specify multiple groups using a comma-separated list.
+- You must provide at least one of `--project` or `--group`.
 
 The script requires an environment variable called `GITLAB_API_TOKEN`, which should be a GitLab API token that is
 allowed to access the project/group issues you want to export.
