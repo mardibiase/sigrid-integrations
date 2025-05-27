@@ -65,6 +65,12 @@ class SigridApiClient:
     def get_osh_sbom(self):
         return self.send_request(f'/rest/analysis-results/api/v1/osh-findings/{self.customer}/{self.system}')
 
+    def get_maintainability_ratings(self):
+        return self.send_request(f"/rest/analysis-results/api/v1/maintainability/{self.customer}/{self.system}")
+
+    def get_architecture_ratings(self):
+        return self.send_request(f"/rest/analysis-results/api/v1/architecture-quality/{self.customer}/{self.system}")
+
     def send_request(self, path):
         try:
             req = urllib.request.Request(f'{self.sigrid_url}{path}')
@@ -182,7 +188,6 @@ class PolarionApiClient:
                         "relationships" : {}
                     }
 
-
     def create_sbom_security_finding(self, finding: Finding):
         if finding.status == "RAW":
             return {
@@ -191,7 +196,7 @@ class PolarionApiClient:
                         "attributes": {
                             "title": f"{finding.type}",
                             "type": "sbomsecurityissue",
-                            "priority": "50", # str(finding.severity_score*10),
+                            "priority": "50",
                             "description": {
                                 "type": "text/html",
                                 "value": f"Sigrid security finding: {finding}"
@@ -212,6 +217,17 @@ class PolarionApiClient:
                     }
         else:
             return None
+
+    def create_system_work_item(self, maintainability_rating, architecture_rating, osh_rating):
+        return {
+            "type": "workitems",
+            "attributes": {
+                "maintainabilityRating": f"{maintainability_rating:.1f}",
+                "architectureRating": f"{architecture_rating:.1f}",
+                "oshRating": f"{osh_rating:.1f}",
+                "securityRating": ""
+            }
+        }
         
     def link_findings_to_components(self, findings: list[Finding]):
         component_names = list(set(map(lambda x: x.component, findings)))
@@ -363,5 +379,10 @@ if __name__ == "__main__":
 
     create_work_items_for_internal(polarion)
 
-    # osh_sbom = sigrid.get_osh_sbom()
-    # create_work_items_for_osh_sbom(osh_sbom, polarion)
+    osh_sbom = sigrid.get_osh_sbom()
+    create_work_items_for_osh_sbom(osh_sbom, polarion)
+
+    maintainability_rating = sigrid.get_maintainability_ratings()["maintainability"]
+    architecture_rating = sigrid.get_architecture_ratings()["ratings"]["architecture"]
+    osh_rating = float(osh_sbom["metadata"]["properties"][0]["value"])
+    polarion.create_system_work_item(maintainability_rating, architecture_rating, osh_rating)
