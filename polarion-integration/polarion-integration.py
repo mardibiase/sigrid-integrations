@@ -279,6 +279,7 @@ def create_work_items_for_osh_sbom(osh_sbom, polarion):
         work_item = polarion.create_sbom_component(component['name'], component['version'], component['purl'])
         osh_sbom_components[component['purl']] = component
         polarion.create_work_items([work_item])
+        polarion.link_component_to_release(work_item)
 
     for vuln in osh_sbom["vulnerabilities"]:
         if len(vuln["affects"]) != 0:
