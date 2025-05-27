@@ -287,6 +287,13 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
     else:
         return sorted(result, key=lambda x: x.severity_score, reverse=True)
 
+def create_work_items_for_internal(polarion):
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
+    internal_findings_only = list(filter(polarion.filter_internal_security_only, all_security_findings))
+    new_security_findings = list(filter(polarion.is_new_finding, internal_findings_only))
+    sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
+    polarion.create_work_items(sbom_findings)
+    polarion.link_findings_to_components(new_security_findings)
 
 def create_work_items_for_osh_sbom(osh_sbom, polarion):
     osh_sbom_components = {}
@@ -354,12 +361,7 @@ if __name__ == "__main__":
     polarionURL = args.polarionurl + "/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
-    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
-    internal_findings_only = list(filter(polarion.filter_internal_security_only, all_security_findings))
-    new_security_findings = list(filter(polarion.is_new_finding, internal_findings_only))
-    sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
-    polarion.create_work_items(sbom_findings)
-    polarion.link_findings_to_components(new_security_findings)
+    create_work_items_for_internal(polarion)
 
     osh_sbom = sigrid.get_osh_sbom()
     create_work_items_for_osh_sbom(osh_sbom, polarion)
