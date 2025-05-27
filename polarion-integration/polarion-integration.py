@@ -218,16 +218,22 @@ class PolarionApiClient:
         else:
             return None
 
-    def create_system_work_item(self, maintainability_rating, architecture_rating, osh_rating):
-        return {
+    def update_star_ratings(self, maintainability_rating, architecture_rating, osh_rating):
+        body = {"data" : {
             "type": "workitems",
+            "id": self.systemWorkItemId,
             "attributes": {
                 "maintainabilityRating": f"{maintainability_rating:.1f}",
                 "architectureRating": f"{architecture_rating:.1f}",
                 "oshRating": f"{osh_rating:.1f}",
                 "securityRating": ""
-            }
-        }
+            },
+            "relationships" : {}
+        }}
+        project = self.systemWorkItemId.split("/")[0]
+        workitem_id =self.systemWorkItemId.split("/")[1]
+        self.call("PATCH", f"/projects/{project}/workitems/{workitem_id}", body)
+
         
     def link_findings_to_components(self, findings: list[Finding]):
         component_names = list(set(map(lambda x: x.component, findings)))
@@ -385,4 +391,4 @@ if __name__ == "__main__":
     maintainability_rating = sigrid.get_maintainability_ratings()["maintainability"]
     architecture_rating = sigrid.get_architecture_ratings()["ratings"]["architecture"]
     osh_rating = float(osh_sbom["metadata"]["properties"][0]["value"])
-    polarion.create_system_work_item(maintainability_rating, architecture_rating, osh_rating)
+    polarion.update_star_ratings(maintainability_rating, architecture_rating, osh_rating)
