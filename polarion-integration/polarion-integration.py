@@ -45,6 +45,7 @@ class Finding:
     severity_score: float
     status: str
     component: str
+    toolName: str
     cweId: str
 
 class SigridApiClient:
@@ -180,7 +181,7 @@ class PolarionApiClient:
         
     def link_findings_to_components(self, findings: list[Finding]):
         component_names = list(set(map(lambda x: x.component, findings)))
-        component_names = list(map(lambda x: "remainder" if x is None else x, component_names))
+        component_names = list(map(lambda x: "None" if x is None else x, component_names))
         new_components_names = list(filter(lambda x: self.is_new_component(x, "sigrid"), component_names))
         new_components_workitems = list(map(lambda x: self.create_sbom_component(x, "sigrid"), new_components_names))
 
@@ -220,7 +221,10 @@ class PolarionApiClient:
 
     def filter_security_findings(self, finding: Finding) -> bool:
         return finding.severity != "INFORMATION"
-
+    
+    def filter_internal_security_only(self, finding: Finding) -> bool:
+        return finding.toolName != "SIG Open Source Health"
+    
 
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
     result = []
@@ -237,7 +241,8 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
             severity_score=raw_finding['severityScore'],
             status=raw_finding['status'],
             component=raw_finding['component'],
-            cweId=raw_finding['cweId']
+            cweId=raw_finding['cweId'],
+            toolName=raw_finding['toolName']
         )
         if include(finding):
             result.append(finding)
@@ -278,7 +283,9 @@ if __name__ == "__main__":
 
     all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
 
-    new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
+    internal_findings_only = list(filter(polarion.filter_internal_security_only, all_security_findings))
+
+    new_security_findings = list(filter(polarion.is_new_finding, internal_findings_only))
     sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
     polarion.create_work_items(sbom_findings)
 
