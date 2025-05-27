@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import json
 import os
 import sys
@@ -29,6 +30,7 @@ from urllib.error import URLError
 import logging
 from argparse import ArgumentParser
 
+
 LOG = logging.getLogger(__name__)
 
 
@@ -36,7 +38,6 @@ LOG = logging.getLogger(__name__)
 class Finding:
     id: str
     href: str
-    first_seen_snapshot_date: date
     file_path: str
     start_line: int
     end_line: int
@@ -45,18 +46,27 @@ class Finding:
     severity_score: float
     status: str
     component: str
-    cweId: str
+    cveId: str = ""
+    cweId: str = ""
+
 
 class SigridApiClient:
     
-    def __init__(self, customer: str, system: str, token: str):
+    def __init__(self, customer: str, system: str, sigrid_url: str, token: str):
         self.customer = customer.lower()
         self.system = system.lower()
+        self.sigrid_url = sigrid_url
         self.token = token
 
-    def get_security_findings(self) -> Union[Any, None]:
+    def get_security_findings(self):
+        return self.send_request(f'/rest/analysis-results/api/v1/security-findings/{self.customer}/{self.system}')
+
+    def get_osh_sbom(self):
+        return self.send_request(f'/rest/analysis-results/api/v1/osh-findings/{self.customer}/{self.system}')
+
+    def send_request(self, path):
         try:
-            req = urllib.request.Request(f'https://sigrid-says.com/rest/analysis-results/api/v1/security-findings/{self.customer}/{self.system}')
+            req = urllib.request.Request(f'{self.sigrid_url}{path}')
             req.add_header('Authorization', 'Bearer ' + self.token)
             with urllib.request.urlopen(req) as response:
                 return json.loads(self.handle_response(response))
@@ -73,12 +83,13 @@ class SigridApiClient:
     @staticmethod
     def handle_response(response):
         if response.status == 200:
-            findings = response.read().decode('utf-8')
-            LOG.info('Sigrid returned JSON (length: %s chars)', len(findings))
-            return findings
+            body = response.read().decode('utf-8')
+            LOG.info('Sigrid returned JSON (length: %s chars)', len(body))
+            return body
         else:
             LOG.error('Sigrid returned status code %s', response.status)
             return None
+
 
 class PolarionApiClient:
     SEVERITY_MAPPING = {
@@ -126,13 +137,15 @@ class PolarionApiClient:
     def get_component_id(self, componentName, componentVersion) -> str:
         query = f"componentName%3A{componentName}%20AND%20componentVersion%3A{componentVersion}"
         response = self.call("GET", f"/projects/{self.projectId}/workitems?query={query}")
+        if not response["data"]:
+            raise Exception(f"Cannot locate Polarion component: {componentName}-{componentVersion}")
         return response["data"][0]["id"]
 
     def create_work_items(self, workItems):
         body = {"data" : workItems}
         return self.call("POST", f"/projects/{self.projectId}/workitems", body)
 
-    def create_sbom_component(self, componentName, componentVersion):
+    def create_sbom_component(self, componentName, componentVersion, purl=""):
         return {
                         "type": "workitems",
                         "attributes": {
@@ -145,7 +158,7 @@ class PolarionApiClient:
                             },
                             "componentName": componentName,
                             "componentVersion": componentVersion,
-                            "componentPURL": "todo"
+                            "componentPURL": purl
                         },
                         "relationships" : {}
                     }
@@ -170,7 +183,9 @@ class PolarionApiClient:
                             }
                             ],
                             "severity": self.SEVERITY_MAPPING[finding.severity],
+                            "cve": finding.cveId,
                             "cwe": finding.cweId,
+                            "cvss": finding.severity_score,
                             "findingid": finding.id
                         },
                         "relationships" : {}
@@ -194,10 +209,10 @@ class PolarionApiClient:
         component_id = self.get_component_id(component["attributes"]["componentName"], component["attributes"]["componentVersion"]).split("/")[-1]
         self.create_workitem_links(component_id, self.systemWorkItemId, "containedIn")
 
-    def link_finding_to_component(self, finding: Finding):
+    def link_finding_to_component(self, finding: Finding, component_version: str = "sigrid"):
         finding_id = self.get_finding_id(finding).split("/")[-1]
         component_name = "remainder" if finding.component is None else finding.component
-        component_id = self.get_component_id(component_name, "sigrid")
+        component_id = self.get_component_id(component_name, component_version)
         self.create_workitem_links(finding_id, component_id, "impacts")
 
     def create_workitem_links(self, fro, to, role):
@@ -228,7 +243,6 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
         finding = Finding(
             id=raw_finding['id'],
             href=raw_finding['href'],
-            first_seen_snapshot_date=date.fromisoformat(raw_finding['firstSeenSnapshotDate']),
             file_path=raw_finding['filePath'],
             start_line=raw_finding['startLine'],
             end_line=raw_finding['endLine'],
@@ -246,6 +260,40 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
     else:
         return sorted(result, key=lambda x: (x.severity_score, x.first_seen_snapshot_date), reverse=True)
 
+
+def create_work_items_for_osh_sbom(osh_sbom, polarion):
+    osh_sbom_components = {}
+
+    for component in osh_sbom["components"]:
+        work_item = polarion.create_sbom_component(component['name'], component['version'], component['purl'])
+        osh_sbom_components[component['purl']] = component
+        polarion.create_work_items([work_item])
+
+    for vuln in osh_sbom["vulnerabilities"]:
+        if len(vuln["affects"]) != 0:
+            purl = vuln["affects"][0]["ref"]
+            component = osh_sbom_components[purl]
+
+            finding = Finding(
+                id=hashlib.sha256(f"{purl}::{vuln['id']}".encode("utf8")).hexdigest(),
+                severity=vuln["ratings"][0]["severity"].upper(),
+                severity_score=vuln["ratings"][0]["score"],
+                status="RAW",
+                type=f"{component['name']}-{component['version']}: {vuln['description']}",
+                cveId=vuln["id"],
+                cweId=f"CWE-{vuln['cwes'][0]}" if vuln["cwes"] else "",
+                href=osh_sbom["metadata"]["tools"][0]["externalReferences"][0]["url"],
+                file_path=component["evidence"]["occurrences"][0]["location"],
+                component=component["name"],
+                start_line=1,
+                end_line=1
+            )
+
+            work_item = polarion.create_sbom_security_finding(finding)
+            polarion.create_work_items([work_item])
+            polarion.link_finding_to_component(finding, component["version"])
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(description='Gets open security findings and post them to Slack.')
     parser.add_argument('--customer', type=str, required=True, help="Name of your organization's Sigrid account.")
@@ -253,6 +301,7 @@ if __name__ == "__main__":
     parser.add_argument('--polarionurl', type=str, required=True, help='Polarion URL. E.g., "https://my-company.polarion.com"')
     parser.add_argument('--polarionproject', type=str, required=True, help='Id of your SBOM project in Polarion.')
     parser.add_argument('--systemworkitem', type=str, required=True, help="All findings will be linked to this workitem. Recommended to be a Release. Formatted as project/workitemid.")
+    parser.add_argument('--sigridurl', type=str, default='https://sigrid-says.com', help='Sigrid base URL.')
     args = parser.parse_args()
 
     if sys.version_info.major == 2 or sys.version_info.minor < 9:
@@ -271,15 +320,16 @@ if __name__ == "__main__":
 
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
-    sigrid = SigridApiClient(args.customer, args.system, sigrid_authentication_token)
+    sigrid = SigridApiClient(args.customer, args.system, args.sigridurl, sigrid_authentication_token)
 
     polarionURL = args.polarionurl + "/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
-    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
+    #all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
+    #new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
+    #sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
+    #polarion.create_work_items(sbom_findings)
+    #polarion.link_findings_to_components(new_security_findings)
 
-    new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
-    sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
-    polarion.create_work_items(sbom_findings)
-
-    polarion.link_findings_to_components(new_security_findings)
+    osh_sbom = sigrid.get_osh_sbom()
+    create_work_items_for_osh_sbom(osh_sbom, polarion)
