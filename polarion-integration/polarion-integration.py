@@ -45,6 +45,7 @@ class Finding:
     severity_score: float
     status: str
     component: str
+    toolName: str
     cveId: str = ""
     cweId: str = ""
 
@@ -115,10 +116,12 @@ class PolarionApiClient:
             response = json.loads(urllib.request.urlopen(request).read().decode("utf-8"))
             return response
         except urllib.error.HTTPError as e:
-            print("-" * 80)
-            print(f"Polarion API failed with HTTP status {e.status} for {path}")
-            print("-" * 80)
-            print(e.read().decode("utf8"))
+            if e.status != 409:
+                print("-" * 80)
+                print(f"Polarion API failed with HTTP status {e.status} for {path}")
+                print("-" * 80)
+                print(e.read().decode("utf8"))
+            return None
     
     def is_new_finding(self, finding: Finding) -> bool:
         response = self.call("GET", f"/projects/{self.projectId}/workitems?query=findingid%3A{finding.id}")
@@ -141,10 +144,15 @@ class PolarionApiClient:
         return response["data"][0]["id"]
 
     def create_work_items(self, workItems):
+        if len(workItems) == 0:
+            return []
         body = {"data" : workItems}
         return self.call("POST", f"/projects/{self.projectId}/workitems", body)
 
     def create_sbom_component(self, componentName, componentVersion, purl=""):
+        if not purl:
+            purl = f"sigrid:{componentName}@{componentVersion}"
+
         return {
                         "type": "workitems",
                         "attributes": {
@@ -194,7 +202,7 @@ class PolarionApiClient:
         
     def link_findings_to_components(self, findings: list[Finding]):
         component_names = list(set(map(lambda x: x.component, findings)))
-        component_names = list(map(lambda x: "remainder" if x is None else x, component_names))
+        component_names = list(map(lambda x: "None" if x is None else x, component_names))
         new_components_names = list(filter(lambda x: self.is_new_component(x, "sigrid"), component_names))
         new_components_workitems = list(map(lambda x: self.create_sbom_component(x, "sigrid"), new_components_names))
 
@@ -234,7 +242,10 @@ class PolarionApiClient:
 
     def filter_security_findings(self, finding: Finding) -> bool:
         return finding.severity != "INFORMATION"
-
+    
+    def filter_internal_security_only(self, finding: Finding) -> bool:
+        return finding.toolName != "SIG Open Source Health"
+    
 
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
     result = []
@@ -250,14 +261,15 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
             severity_score=raw_finding['severityScore'],
             status=raw_finding['status'],
             component=raw_finding['component'],
-            cweId=raw_finding['cweId']
+            cweId=raw_finding['cweId'],
+            toolName=raw_finding['toolName']
         )
         if include(finding):
             result.append(finding)
     if len(result) == 0:
         return result
     else:
-        return sorted(result, key=lambda x: (x.severity_score, x.first_seen_snapshot_date), reverse=True)
+        return sorted(result, key=lambda x: x.severity_score, reverse=True)
 
 
 def create_work_items_for_osh_sbom(osh_sbom, polarion):
@@ -285,7 +297,8 @@ def create_work_items_for_osh_sbom(osh_sbom, polarion):
                 file_path=component["evidence"]["occurrences"][0]["location"],
                 component=component["name"],
                 start_line=1,
-                end_line=1
+                end_line=1,
+                toolName="Sigrid Open Source Health"
             )
 
             work_item = polarion.create_sbom_security_finding(finding)
@@ -324,11 +337,12 @@ if __name__ == "__main__":
     polarionURL = args.polarionurl + "/polarion/rest/v1"
     polarion = PolarionApiClient(polarionURL, polarion_authentication_token, args.polarionproject, args.systemworkitem)
 
-    #all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
-    #new_security_findings = list(filter(polarion.is_new_finding, all_security_findings))
-    #sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
-    #polarion.create_work_items(sbom_findings)
-    #polarion.link_findings_to_components(new_security_findings)
+    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
+    internal_findings_only = list(filter(polarion.filter_internal_security_only, all_security_findings))
+    new_security_findings = list(filter(polarion.is_new_finding, internal_findings_only))
+    sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
+    polarion.create_work_items(sbom_findings)
+    polarion.link_findings_to_components(new_security_findings)
 
     osh_sbom = sigrid.get_osh_sbom()
     create_work_items_for_osh_sbom(osh_sbom, polarion)
