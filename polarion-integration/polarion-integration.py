@@ -19,7 +19,6 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date
 from http.client import RemoteDisconnected
 from json import JSONDecodeError
 from typing import Callable, Any, Union
