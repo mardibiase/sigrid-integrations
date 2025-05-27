@@ -33,7 +33,7 @@ from argparse import ArgumentParser
 LOG = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass
 class Finding:
     id: str
     href: str
@@ -48,6 +48,7 @@ class Finding:
     toolName: str
     cveId: str = ""
     cweId: str = ""
+    polarionId: str = None
 
 
 class SigridApiClient:
@@ -113,8 +114,11 @@ class PolarionApiClient:
             request.add_header("Content-Type", "application/json")
             request.add_header("Accept", "application/json")
             request.add_header("Authorization", f"Bearer {self.token}")
-            response = json.loads(urllib.request.urlopen(request).read().decode("utf-8"))
-            return response
+            call = urllib.request.urlopen(request).read().decode("utf-8")
+            if method == "PATCH":
+                return None
+            else:
+                return json.loads(call)
         except urllib.error.HTTPError as e:
             if e.status != 409:
                 print("-" * 80)
@@ -148,6 +152,14 @@ class PolarionApiClient:
             return []
         body = {"data" : workItems}
         return self.call("POST", f"/projects/{self.projectId}/workitems", body)
+    
+    def patch_work_items(self, workItems):
+        if len(workItems) == 0:
+            return []
+        for workItem in workItems:
+            del workItem["attributes"]["type"]
+        body = {"data" : workItems}
+        return self.call("PATCH", f"/projects/{self.projectId}/workitems", body)
 
     def create_sbom_component(self, componentName, componentVersion, purl=""):
         if not purl:
@@ -175,6 +187,7 @@ class PolarionApiClient:
         if finding.status == "RAW":
             return {
                         "type": "workitems",
+                        "id": finding.polarionId, 
                         "attributes": {
                             "title": f"{finding.type}",
                             "type": "sbomsecurityissue",
@@ -241,11 +254,7 @@ class PolarionApiClient:
         return self.call("POST", f"/projects/{self.projectId}/workitems/{fro}/linkedworkitems", body)   
 
     def filter_security_findings(self, finding: Finding) -> bool:
-        return finding.severity != "INFORMATION"
-    
-    def filter_internal_security_only(self, finding: Finding) -> bool:
-        return finding.toolName != "SIG Open Source Health"
-    
+        return finding.severity != "INFORMATION" and finding.toolName != "SIG Open Source Health"
 
 def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[Finding]:
     result = []
@@ -272,12 +281,19 @@ def process_findings(findings: Any, include: Callable[[Finding], bool]) -> list[
         return sorted(result, key=lambda x: x.severity_score, reverse=True)
 
 def create_work_items_for_internal(polarion):
-    all_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
-    internal_findings_only = list(filter(polarion.filter_internal_security_only, all_security_findings))
-    new_security_findings = list(filter(polarion.is_new_finding, internal_findings_only))
-    sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
-    polarion.create_work_items(sbom_findings)
+    all_internal_security_findings = process_findings(sigrid.get_security_findings(), polarion.filter_security_findings)
+    
+    new_security_findings = list(filter(polarion.is_new_finding, all_internal_security_findings))
+    new_sbom_findings = list(map(polarion.create_sbom_security_finding, new_security_findings))
+    polarion.create_work_items(new_sbom_findings)
     polarion.link_findings_to_components(new_security_findings)
+
+    old_security_findings = list(filter(lambda x: not polarion.is_new_finding(x), all_internal_security_findings))
+    for finding in old_security_findings:
+        finding.polarionId = polarion.get_finding_id(finding)
+
+    old_sbom_findings = list(map(polarion.create_sbom_security_finding, old_security_findings))
+    polarion.patch_work_items(old_sbom_findings)
 
 def create_work_items_for_osh_sbom(osh_sbom, polarion):
     osh_sbom_components = {}
@@ -347,5 +363,5 @@ if __name__ == "__main__":
 
     create_work_items_for_internal(polarion)
 
-    osh_sbom = sigrid.get_osh_sbom()
-    create_work_items_for_osh_sbom(osh_sbom, polarion)
+    # osh_sbom = sigrid.get_osh_sbom()
+    # create_work_items_for_osh_sbom(osh_sbom, polarion)
