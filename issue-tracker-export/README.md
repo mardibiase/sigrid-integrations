@@ -10,6 +10,7 @@ The following issue trackers are supported:
 
 - [GitHub](#usage-for-github)
 - [GitLab](#usage-for-gitlab)
+- [JIRA](#usage-for-jira)
 
 ## Prerequisites
 
@@ -21,7 +22,7 @@ The following issue trackers are supported:
 You can export your GitHub issues from your pipeline using these scripts. Depending on your environment, you can
 either clone this repository and then run the script, or you can run the script via the Docker container.
 
-    ./export_github_issues --github-api-url https://api.github.com" --org mycompany --repo myrepo
+    ./export_github_issues --github-api-url https://api.github.com --org mycompany --repo myrepo
 
 The script requires an environment variable called `GITHUB_API_TOKEN`, which should be a
 [fine-grained personal access token for GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#fine-grained-personal-access-tokens)
@@ -49,6 +50,18 @@ allowed to access the project/group issues you want to export.
 These scripts will export the issue tracker data to a location where it can be picked up by
 [Sigrid CI](https://docs.sigrid-says.com/sigridci-integration/gitlab.html). Therefore, you should run this step 
 *before* you run the Sigrid CI step in your pipeline configuration.
+
+## Usage for JIRA
+
+You can export your JIRA issues from your pipeline using these scripts. Depending on your environment, you can
+either clone this repository and then run the script, or you can run the script via the Docker container.
+Running this script requires the environment variable `JIRA_API_TOKEN` containing a valid
+[JIRA personal access token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html).
+
+    ./export_jira_issues.py --jira-base-url jira.example.com --project AAP
+
+The `--project` argument is used to control which projects should be exported. It should contain a comma-separated
+list of [JIRA project keys](https://confluence.atlassian.com/adminjiraserver/editing-a-project-key-938847080.html).
 
 ## What issue tracker data is published to Sigrid?
 
