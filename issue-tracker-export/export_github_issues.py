@@ -49,6 +49,7 @@ def parseDate(value):
 
 def parseIssue(org, repo, issue):
     return Issue(
+        id=issue["id"],
         project=f"{org}/{repo}",
         title=issue["title"],
         status=issue["state"],

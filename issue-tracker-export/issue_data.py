@@ -18,6 +18,7 @@ from datetime import datetime
 
 @dataclass
 class Issue:
+    id: str
     project: str
     title: str
     status: str
