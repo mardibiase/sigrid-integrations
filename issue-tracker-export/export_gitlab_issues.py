@@ -57,6 +57,7 @@ def parseDate(value):
 
 def parseIssue(issue):
     return Issue(
+        id=issue["id"],
         project=issue["references"]["full"].split("#")[0],
         title=issue["title"],
         status=issue["state"],
