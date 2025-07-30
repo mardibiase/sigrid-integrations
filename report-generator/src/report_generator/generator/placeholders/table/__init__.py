@@ -12,6 +12,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .presets import SYSTEM_LEVEL_PRESETS, ids, run
+import inspect
 
-__all__ = ['ids', 'run', 'SYSTEM_LEVEL_PRESETS']
+from . import refactoring_candidates
+
+_all_implementations = {
+    **refactoring_candidates.__dict__,
+}
+
+_placeholders_map = {
+    name: obj for name, obj in _all_implementations.items()
+    if inspect.isclass(obj) and hasattr(obj, '__placeholder__') and not inspect.isabstract(obj)
+}
+
+placeholders = set(_placeholders_map.values())
+
+__all__ = list(_placeholders_map.keys())

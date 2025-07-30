@@ -12,6 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .presets import SYSTEM_LEVEL_PRESETS, ids, run
+from report_generator.generator.data_models import *
+from .base import text_placeholder
 
-__all__ = ['ids', 'run', 'SYSTEM_LEVEL_PRESETS']
+
+@text_placeholder()
+def system_name():
+    """The name of the system as defined in Sigrid Metadata, capitalized."""
+    return system_metadata.display_name
+
+
+@text_placeholder()
+def customer_name():
+    """The name of the customer as defined in Sigrid, capitalized."""
+    return maintainability_data.customer_name
