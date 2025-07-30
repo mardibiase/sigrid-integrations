@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dateutil.parser
-import itertools
 import json
 import os
 import sys
@@ -41,20 +39,14 @@ def fetchIssues(baseURL, projects):
             start += body["maxResults"]
 
 
-def parseDate(value):
-    if value in (None, "", "None"):
-        return None
-    return dateutil.parser.isoparse(value)
-
-
 def parseIssue(issue):
     return Issue(
         id=issue["key"],
         project=issue["fields"]["project"]["name"],
         title=issue["fields"]["summary"],
         status=issue["fields"]["status"]["name"],
-        created=parseDate(issue["fields"]["created"]),
-        closed=parseDate(issue["fields"]["resolutiondate"]),
+        created=IssueDataSerializer.parseDate(issue["fields"]["created"]),
+        closed=IssueDataSerializer.parseDate(issue["fields"]["resolutiondate"]),
         author=issue["fields"]["creator"]["displayName"],
         assignee=issue["fields"]["assignee"]["displayName"] if issue["fields"]["assignee"] else None,
         epic=None,

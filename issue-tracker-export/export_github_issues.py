@@ -41,20 +41,14 @@ def fetchIssues(apiBaseURL, org, repo):
             url = link.group(1) if link else None
 
 
-def parseDate(value):
-    if value in (None, "", "None"):
-        return None
-    return dateutil.parser.isoparse(value)
-
-
 def parseIssue(org, repo, issue):
     return Issue(
         id=issue["id"],
         project=f"{org}/{repo}",
         title=issue["title"],
         status=issue["state"],
-        created=parseDate(issue["created_at"]),
-        closed=parseDate(issue["closed_at"]),
+        created=IssueDataSerializer.parseDate(issue["created_at"]),
+        closed=IssueDataSerializer.parseDate(issue["closed_at"]),
         author=issue["user"]["login"],
         assignee=issue["assignee"]["login"] if issue["assignee"] else None,
         epic=None,
