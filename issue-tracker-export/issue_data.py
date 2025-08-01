@@ -25,12 +25,13 @@ class LabelEvent:
 @dataclass
 class Issue:
     id: str
+    url: str
     project: str
     title: str
     created: datetime
     closed: datetime
     author: str
-    assignee: str
+    assignees: list[str]
     epicId: str
     labels: list[str]
     labelHistory: list[LabelEvent]
@@ -39,6 +40,7 @@ class Issue:
 @dataclass
 class Epic:
     id: str
+    url: str
     title: str
     created: datetime
     closed: datetime

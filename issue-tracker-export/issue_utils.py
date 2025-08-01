@@ -27,8 +27,14 @@ def parseDate(value):
     return dateutil.parser.isoparse(value)
 
 
-def serialize(data, outputFile):
+def serialize(data, outputFile, anonymize):
     os.makedirs(os.path.dirname(outputFile), exist_ok=True)
+
+    if anonymize:
+        for issue in data.issues:
+            issue.author = anonymizeAuthorName(issue.author) if issue.author else None
+            issue.assignees = [anonymizeAuthorName(assignee) for assignee in issue.assignees]
+
     with open(outputFile, "w", encoding="utf8") as f:
         dump(asdict(data), f, indent=4, default=serializeFieldToJSON)
 
@@ -39,5 +45,5 @@ def serializeFieldToJSON(field):
     raise TypeError(f"Cannot serialize field to JSON: {type(field)}")
 
 
-def anonymize(text):
-    return hashlib.sha256(text.encode("utf8")).hexdigest()
+def anonymizeAuthorName(name):
+    return hashlib.sha256(name.encode("utf8")).hexdigest()

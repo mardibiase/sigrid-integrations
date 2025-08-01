@@ -25,7 +25,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 
 from issue_data import Epic, Issue, IssueTrackerData, LabelEvent
-from issue_utils import anonymize, parseDate, serialize
+from issue_utils import parseDate, serialize
 
 
 def sendRequest(url):
@@ -65,12 +65,13 @@ def fetchIssues(baseURL, groups, projects):
 def parseIssue(issue, labelHistory):
     return Issue(
         id=issue["id"],
+        url=issue["url"],
         project=issue["references"]["full"].split("#")[0],
         title=issue["title"],
         created=parseDate(issue["created_at"]),
         closed=parseDate(issue["closed_at"]),
-        author=anonymize(issue["author"]["name"]),
-        assignee=anonymize(issue["assignee"]["name"]) if issue["assignee"] else None,
+        author=issue["author"]["name"],
+        assignees=[assignee["name"] for assignee in issue["assignees"]],
         epicId=f"{issue['epic']['group_id']}::{issue['epic']['id']}" if issue["epic"] else None,
         labels=issue["labels"],
         labelHistory=labelHistory
@@ -92,6 +93,7 @@ def fetchEpics(baseURL, issues):
         for epic in sendRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{id}"):
             yield Epic(
                 id=epicId,
+                url=epic["url"],
                 title=epic["title"],
                 created=parseDate(epic["created_at"]),
                 closed=parseDate(epic["closed_at"]),
@@ -119,6 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--group", type=str, default="", help="Comma-separated list of GitLab group paths.")
     parser.add_argument("--project", type=str, default="", help="Comma-separated list of GitLab project paths.")
     parser.add_argument("--out", type=str, default=".sigrid/gitlab-issues.json", help="Output file.")
+    parser.add_argument("--anonymize", action="store_true", help="Anonymize author names.")
     args = parser.parse_args()
 
     if not "GITLAB_API_TOKEN" in os.environ:
@@ -130,5 +133,5 @@ if __name__ == "__main__":
     
     data = exportGitLabIssues(args.gitlab_base_url, groups, projects)
     outputFile = os.path.expanduser(args.out)
-    serialize(data, outputFile)
+    serialize(data, outputFile, args.anonymize)
     print(f"Exported {len(data.issues)} issues to {outputFile}")
