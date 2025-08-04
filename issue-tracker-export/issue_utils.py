@@ -36,7 +36,7 @@ def serialize(data, outputFile, anonymize):
             issue.assignees = [anonymizeAuthorName(assignee) for assignee in issue.assignees]
 
     with open(outputFile, "w", encoding="utf8") as f:
-        dump(asdict(data), f, indent=4, default=serializeFieldToJSON)
+        dump(asdict(data), f, indent=4, ensure_ascii=False, default=serializeFieldToJSON)
 
 
 def serializeFieldToJSON(field):
