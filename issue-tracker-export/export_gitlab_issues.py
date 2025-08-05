@@ -48,16 +48,16 @@ def sendMultipartRequest(url):
                 break
 
 
-def fetchIssues(baseURL, groups, projects):
+def fetchIssues(baseURL, groups, projects, start):
     for group in groups:
         slug = urllib.parse.quote_plus(group)
-        for issue in sendMultipartRequest(f"{baseURL}/api/v4/groups/{slug}/issues?scope=all&state=all"):
+        for issue in sendMultipartRequest(f"{baseURL}/api/v4/groups/{slug}/issues?scope=all&state=all&created_after={start}"):
             labelHistory = list(fetchIssueLabelHistory(baseURL, issue))
             yield parseIssue(issue, labelHistory)
 
     for project in projects:
         slug = urllib.parse.quote_plus(project)
-        for issue in sendMultipartRequest(f"{baseURL}/api/v4/projects/{slug}/issues?scope=all&state=all"):
+        for issue in sendMultipartRequest(f"{baseURL}/api/v4/projects/{slug}/issues?scope=all&state=all&created_after={start}"):
             labelHistory = list(fetchIssueLabelHistory(baseURL, issue))
             yield parseIssue(issue, labelHistory)
 
@@ -72,7 +72,7 @@ def parseIssue(issue, labelHistory):
         closed=parseDate(issue["closed_at"]),
         author=issue["author"]["name"],
         assignees=[assignee["name"] for assignee in issue["assignees"]],
-        epicId=f"{issue['epic']['group_id']}::{issue['epic']['iid']}" if issue["epic"] else None,
+        epicId=f"{issue['epic']['group_id']}::{issue['epic']['id']}::{issue['epic']['iid']}" if issue["epic"] else None,
         labels=issue["labels"],
         labelHistory=labelHistory
     )
@@ -89,8 +89,8 @@ def fetchIssueLabelHistory(baseURL, issue):
 def fetchEpics(baseURL, issues):
     epicIds = set(issue.epicId for issue in issues if issue.epicId)
     for epicId in epicIds:
-        groupId, id = epicId.split("::")
-        for epic in sendRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{id}"):
+        groupId, id, iid = epicId.split("::")
+        for epic in sendRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{iid}"):
             yield Epic(
                 id=epicId,
                 url=epic["web_url"],
@@ -103,14 +103,14 @@ def fetchEpics(baseURL, issues):
 
 
 def fetchEpicLabelHistory(baseURL, epicId):
-    groupId, id = epicId.split("::")
+    groupId, id, iid = epicId.split("::")
     for event in sendMultipartRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{id}/resource_label_events?t"):
         if event["action"] == "add" and event["label"]:
             yield LabelEvent(parseDate(event["created_at"]), event["label"]["name"])
 
     
-def exportGitLabIssues(baseURL, groups, projects):
-    issues = list(fetchIssues(baseURL, groups, projects))
+def exportGitLabIssues(baseURL, groups, projects, start):
+    issues = list(fetchIssues(baseURL, groups, projects, start))
     epics = list(fetchEpics(baseURL, issues))
     return IssueTrackerData("GitLab", datetime.now(), issues, epics)
 
@@ -121,6 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--group", type=str, default="", help="Comma-separated list of GitLab group paths.")
     parser.add_argument("--project", type=str, default="", help="Comma-separated list of GitLab project paths.")
     parser.add_argument("--out", type=str, default=".sigrid/gitlab-issues.json", help="Output file.")
+    parser.add_argument("--start", type=str, default="1970-01-01", help="Export issues created after (yyyy-mm-dd).")
     parser.add_argument("--anonymize", action="store_true", help="Anonymize author names.")
     args = parser.parse_args()
 
@@ -131,7 +132,7 @@ if __name__ == "__main__":
     groups = args.group.split("," if args.group else None)
     projects = args.project.split("," if args.project else None)
     
-    data = exportGitLabIssues(args.gitlab_base_url, groups, projects)
+    data = exportGitLabIssues(args.gitlab_base_url, groups, projects, args.start)
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
     print(f"Exported {len(data.issues)} issues to {outputFile}")
