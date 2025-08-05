@@ -72,7 +72,7 @@ def parseIssue(issue, labelHistory):
         closed=parseDate(issue["closed_at"]),
         author=issue["author"]["name"],
         assignees=[assignee["name"] for assignee in issue["assignees"]],
-        epicId=f"{issue['epic']['group_id']}::{issue['epic']['id']}" if issue["epic"] else None,
+        epicId=f"{issue['epic']['group_id']}::{issue['epic']['iid']}" if issue["epic"] else None,
         labels=issue["labels"],
         labelHistory=labelHistory
     )
