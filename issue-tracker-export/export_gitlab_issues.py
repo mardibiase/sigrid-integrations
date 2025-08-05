@@ -93,7 +93,7 @@ def fetchEpics(baseURL, issues):
         for epic in sendRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{id}"):
             yield Epic(
                 id=epicId,
-                url=epic["url"],
+                url=epic["web_url"],
                 title=epic["title"],
                 created=parseDate(epic["created_at"]),
                 closed=parseDate(epic["closed_at"]),
