@@ -65,7 +65,7 @@ def fetchIssues(baseURL, groups, projects):
 def parseIssue(issue, labelHistory):
     return Issue(
         id=issue["id"],
-        url=issue["url"],
+        url=issue["web_url"],
         project=issue["references"]["full"].split("#")[0],
         title=issue["title"],
         created=parseDate(issue["created_at"]),
