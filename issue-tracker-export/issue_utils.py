@@ -47,3 +47,9 @@ def serializeFieldToJSON(field):
 
 def anonymizeAuthorName(name):
     return hashlib.sha256(name.encode("utf8")).hexdigest()
+
+
+def filterIssueData(issueData, excludeLabels):
+    isExcluded = lambda labels: bool(set(labels) & set(excludeLabels))
+    issueData["issues"] = [issue for issue in issueData["issues"] if not isExcluded(issue["labels"])]
+    issueData["epics"] = [epic for epic in issueData["epics"] if not isExcluded(epic["labels"])]

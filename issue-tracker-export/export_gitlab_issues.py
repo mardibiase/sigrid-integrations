@@ -22,10 +22,19 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from datetime import datetime
 
 from issue_data import Epic, Issue, IssueTrackerData, LabelEvent
-from issue_utils import parseDate, serialize
+from issue_utils import parseDate, serialize, filterIssueData
+
+
+@dataclass
+class ExportOptions:
+    groups: list[str]
+    projects: [str]
+    start: str
+    excludeLabels: list[str]
 
 
 def sendRequest(url):
@@ -120,6 +129,7 @@ if __name__ == "__main__":
     parser.add_argument("--gitlab-base-url", type=str, required=True, help="GitLab base URL.")
     parser.add_argument("--group", type=str, default="", help="Comma-separated list of GitLab group paths.")
     parser.add_argument("--project", type=str, default="", help="Comma-separated list of GitLab project paths.")
+    parser.add_argument("--exclude-labels", type=str, default="", help="Comma-separated labels to be excluded.")
     parser.add_argument("--out", type=str, default=".sigrid/gitlab-issues.json", help="Output file.")
     parser.add_argument("--start", type=str, default="1970-01-01", help="Export issues created after (yyyy-mm-dd).")
     parser.add_argument("--anonymize", action="store_true", help="Anonymize author names.")
@@ -131,8 +141,10 @@ if __name__ == "__main__":
 
     groups = args.group.split("," if args.group else None)
     projects = args.project.split("," if args.project else None)
+    excludeLabels = args.exclude_labels.split(",") if args.exclude_labels else []
     
     data = exportGitLabIssues(args.gitlab_base_url, groups, projects, args.start)
+    filterIssueData(data, excludeLabels)
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
     print(f"Exported {len(data.issues)} issues to {outputFile}")
