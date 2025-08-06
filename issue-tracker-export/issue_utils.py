@@ -51,5 +51,5 @@ def anonymizeAuthorName(name):
 
 def filterIssueData(issueData, excludeLabels):
     isExcluded = lambda labels: bool(set(labels) & set(excludeLabels))
-    issueData.issues = [issue for issue in issueData.issues if not isExcluded(issue["labels"])]
-    issueData.epics = [epic for epic in issueData.epics if not isExcluded(epic["labels"])]
+    issueData.issues = [issue for issue in issueData.issues if not isExcluded(issue.labels)]
+    issueData.epics = [epic for epic in issueData.epics if not isExcluded(epic.labels)]
