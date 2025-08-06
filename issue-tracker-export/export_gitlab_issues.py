@@ -22,19 +22,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
-from dataclasses import dataclass
 from datetime import datetime
 
 from issue_data import Epic, Issue, IssueTrackerData, LabelEvent
 from issue_utils import parseDate, serialize, filterIssueData
-
-
-@dataclass
-class ExportOptions:
-    groups: list[str]
-    projects: [str]
-    start: str
-    excludeLabels: list[str]
 
 
 def sendRequest(url):
