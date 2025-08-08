@@ -49,17 +49,14 @@ def sendMultipartRequest(url):
 
 
 def fetchIssues(baseURL, groups, projects, start):
-    for group in groups:
-        slug = urllib.parse.quote_plus(group)
-        for issue in sendMultipartRequest(f"{baseURL}/api/v4/groups/{slug}/issues?scope=all&state=all&created_after={start}"):
-            labelHistory = list(fetchIssueLabelHistory(baseURL, issue))
-            yield parseIssue(issue, labelHistory)
+    groupURLs = [f"{baseURL}/api/v4/groups/{urllib.parse.quote_plus(group)}/issues" for group in groups]
+    projectURLs = [f"{baseURL}/api/v4/projects/{urllib.parse.quote_plus(project)}/issues" for project in projects]
 
-    for project in projects:
-        slug = urllib.parse.quote_plus(project)
-        for issue in sendMultipartRequest(f"{baseURL}/api/v4/projects/{slug}/issues?scope=all&state=all&created_after={start}"):
-            labelHistory = list(fetchIssueLabelHistory(baseURL, issue))
-            yield parseIssue(issue, labelHistory)
+    for url in (groupURLs + projectURLs):
+        for issue in sendMultipartRequest(f"{url}?scope=all&state=all&created_after={start}"):
+            if not issue.get("moved_to_id"):
+                labelHistory = list(fetchIssueLabelHistory(baseURL, issue))
+                yield parseIssue(issue, labelHistory)
 
 
 def parseIssue(issue, labelHistory):
