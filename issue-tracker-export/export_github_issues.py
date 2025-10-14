@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument("--org", type=str, required=True, help="GitHub organization name.")
     parser.add_argument("--repo", type=str, required=True, help="Comma-separated list of GitHub repository names.")
     parser.add_argument("--out", type=str, default=".sigrid/github-issues.json", help="Output file.")
+    parser.add_argument("--anonymize", action="store_true", help="Anonymize author names.")
     args = parser.parse_args()
 
     if not "GITHUB_API_TOKEN" in os.environ:
