@@ -17,25 +17,19 @@ from datetime import datetime
 
 
 @dataclass
-class LabelEvent:
-    date: datetime
-    label: str
-
-
-@dataclass
 class Issue:
     id: str
     url: str
     project: str
     title: str
+    descriptionLength: int
     created: datetime
     closed: datetime
     author: str
     assignees: list[str]
     epicId: str
     labels: list[str]
-    labelHistory: list[LabelEvent]
-    
+
     
 @dataclass
 class Epic:
@@ -45,8 +39,7 @@ class Epic:
     created: datetime
     closed: datetime
     labels: list[str]
-    labelHistory: list[LabelEvent]
-    
+
     
 @dataclass
 class IssueTrackerData:

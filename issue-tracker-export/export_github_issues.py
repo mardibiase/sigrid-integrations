@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dateutil.parser
 import itertools
 import json
 import os
@@ -23,9 +22,10 @@ import sys
 import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
+from datetime import datetime
 
-from issue_data import Issue
-from issue_data_serializer import IssueDataSerializer
+from issue_data import Epic, Issue, IssueTrackerData
+from issue_utils import parseDate, serialize
 
 
 def fetchIssues(apiBaseURL, org, repo):
@@ -44,15 +44,27 @@ def fetchIssues(apiBaseURL, org, repo):
 def parseIssue(org, repo, issue):
     return Issue(
         id=issue["id"],
+        url=issue["html_url"],
         project=f"{org}/{repo}",
         title=issue["title"],
-        status=issue["state"],
-        created=IssueDataSerializer.parseDate(issue["created_at"]),
-        closed=IssueDataSerializer.parseDate(issue["closed_at"]),
+        descriptionLength=len(issue["body"] or ""),
+        created=parseDate(issue["created_at"]),
+        closed=parseDate(issue["closed_at"]),
         author=issue["user"]["login"],
-        assignee=issue["assignee"]["login"] if issue["assignee"] else None,
-        epic=None,
+        assignees=[assignee["login"] for assignee in issue["assignees"]],
+        epicId=issue["milestone"]["id"] if issue["milestone"] else None,
         labels=[label["name"] for label in issue["labels"]]
+    )
+
+
+def parseMilestone(milestone):
+    return Epic(
+        id=milestone["id"],
+        url=milestone["html_url"],
+        title=milestone["title"],
+        created=parseDate(milestone["created_at"]),
+        closed=parseDate(milestone["closed_at"]),
+        labels=[]
     )
 
 
@@ -61,7 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("--github-api-url", type=str, default="https://api.github.com")
     parser.add_argument("--org", type=str, required=True, help="GitHub organization name.")
     parser.add_argument("--repo", type=str, required=True, help="Comma-separated list of GitHub repository names.")
-    parser.add_argument("--out", type=str, default=".sigrid", help="Output directory.")
+    parser.add_argument("--out", type=str, default=".sigrid/github-issues.json", help="Output file.")
     args = parser.parse_args()
 
     if not "GITHUB_API_TOKEN" in os.environ:
@@ -70,7 +82,11 @@ if __name__ == "__main__":
 
     repoIssues = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in args.repo.split(",")]
     issues = list(itertools.chain(*repoIssues))
-    outputDir = os.path.expanduser(args.out)
 
-    IssueDataSerializer.serialize("GitHub", issues, outputDir)
-    print(f"Exported {len(issues)} issues to {outputDir}")
+    repoMilestones = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in args.repo.split(",")]
+    milestones = list(itertools.chain(*repoMilestones))
+
+    data = IssueTrackerData("GitHub", datetime.now(), issues, milestones)
+    outputFile = os.path.expanduser(args.out)
+    serialize(data, outputFile, args.anonymize)
+    print(f"Exported {len(data.issues)} issues to {outputFile}")

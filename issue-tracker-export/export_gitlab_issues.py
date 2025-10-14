@@ -24,7 +24,7 @@ import urllib.request
 from argparse import ArgumentParser
 from datetime import datetime
 
-from issue_data import Epic, Issue, IssueTrackerData, LabelEvent
+from issue_data import Epic, Issue, IssueTrackerData
 from issue_utils import parseDate, serialize, filterIssueData
 
 
@@ -55,32 +55,23 @@ def fetchIssues(baseURL, groups, projects, start):
     for url in (groupURLs + projectURLs):
         for issue in sendMultipartRequest(f"{url}?scope=all&state=all&created_after={start}"):
             if not issue.get("moved_to_id"):
-                labelHistory = list(fetchIssueLabelHistory(baseURL, issue))
-                yield parseIssue(issue, labelHistory)
+                yield parseIssue(issue)
 
 
-def parseIssue(issue, labelHistory):
+def parseIssue(issue):
     return Issue(
         id=issue["id"],
         url=issue["web_url"],
         project=issue["references"]["full"].split("#")[0],
         title=issue["title"],
+        descriptionLength=len(issue["description"] or ""),
         created=parseDate(issue["created_at"]),
         closed=parseDate(issue["closed_at"]),
         author=issue["author"]["name"],
         assignees=[assignee["name"] for assignee in issue["assignees"]],
         epicId=f"{issue['epic']['group_id']}::{issue['epic']['id']}::{issue['epic']['iid']}" if issue["epic"] else None,
-        labels=issue["labels"],
-        labelHistory=labelHistory
+        labels=issue["labels"]
     )
-
-
-def fetchIssueLabelHistory(baseURL, issue):
-    labelURL = f"{baseURL}/api/v4/projects/{issue['project_id']}/issues/{issue['iid']}/resource_label_events?t"
-
-    for event in sendMultipartRequest(labelURL):
-        if event["action"] == "add" and event["label"]:
-            yield LabelEvent(parseDate(event["created_at"]), event["label"]["name"])
 
             
 def fetchEpics(baseURL, issues):
@@ -94,18 +85,10 @@ def fetchEpics(baseURL, issues):
                 title=epic["title"],
                 created=parseDate(epic["created_at"]),
                 closed=parseDate(epic["closed_at"]),
-                labels=epic["labels"],
-                labelHistory=list(fetchEpicLabelHistory(baseURL, epicId))
+                labels=epic["labels"]
             )
 
 
-def fetchEpicLabelHistory(baseURL, epicId):
-    groupId, id, iid = epicId.split("::")
-    for event in sendMultipartRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{id}/resource_label_events?t"):
-        if event["action"] == "add" and event["label"]:
-            yield LabelEvent(parseDate(event["created_at"]), event["label"]["name"])
-
-    
 def exportGitLabIssues(baseURL, groups, projects, start):
     issues = list(fetchIssues(baseURL, groups, projects, start))
     epics = list(fetchEpics(baseURL, issues))
