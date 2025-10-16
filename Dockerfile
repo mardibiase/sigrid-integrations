@@ -10,6 +10,8 @@ COPY report-generator/ /sources/report-generator
 RUN apk add --no-cache \
         python3-dev libxml2-dev libxslt-dev \
         build-base \
+        libjpeg-turbo-dev zlib-dev freetype-dev \
+        lcms2-dev openjpeg-dev tiff-dev libwebp-dev \
     && adduser -S sigrid \
     && pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir /sources/report-generator \
