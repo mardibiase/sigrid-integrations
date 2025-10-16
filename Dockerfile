@@ -9,6 +9,7 @@ COPY report-generator/ /sources/report-generator
 
 RUN apk add --no-cache \
         python3-dev libxml2-dev libxslt-dev \
+        build-base \
     && adduser -S sigrid \
     && pip install --no-cache-dir /sources/report-generator \
     && rm -rf /sources \
