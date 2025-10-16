@@ -8,8 +8,7 @@ COPY polarion-integration/ /integrations/polarion-integration
 COPY report-generator/ /sources/report-generator
 
 RUN apk add --no-cache \
-        py3-lxml=5.3.1-r3 \
-        build-base \
+        python3-dev libxml2-dev libxslt-dev \
     && adduser -S sigrid \
     && pip install --no-cache-dir /sources/report-generator \
     && rm -rf /sources \
