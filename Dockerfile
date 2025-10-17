@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:3.13-alpine
 
 COPY export-portfolio-dependencies/ /integrations/export-portfolio-dependencies
 COPY get-scope-file/ /integrations/get-scope-file
@@ -8,10 +8,8 @@ COPY polarion-integration/ /integrations/polarion-integration
 COPY report-generator/ /sources/report-generator
 
 RUN apk add --no-cache \
-        python3-dev libxml2-dev libxslt-dev \
+        py3-lxml=5.3.1-r3 \
         build-base \
-        libjpeg-turbo-dev zlib-dev freetype-dev \
-        lcms2-dev openjpeg-dev tiff-dev libwebp-dev \
     && adduser -S sigrid \
     && pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir /sources/report-generator \
