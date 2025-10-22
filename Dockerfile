@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:3.13-alpine
 
 COPY export-portfolio-dependencies/ /integrations/export-portfolio-dependencies
 COPY get-scope-file/ /integrations/get-scope-file
