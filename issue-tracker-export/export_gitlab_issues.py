@@ -118,4 +118,4 @@ if __name__ == "__main__":
     filterIssueData(data, excludeLabels)
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
-    print(f"Exported {len(data.issues)} issues to {outputFile}")
+    print(f"Exported {len(data.issues)} issues and {len(data.epics)} epics to {outputFile}")
