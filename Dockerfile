@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:3.13-alpine
 
 COPY export-portfolio-dependencies/ /integrations/export-portfolio-dependencies
 COPY get-scope-file/ /integrations/get-scope-file
@@ -9,7 +9,9 @@ COPY report-generator/ /sources/report-generator
 
 RUN apk add --no-cache \
         py3-lxml=5.3.1-r3 \
+        build-base \
     && adduser -S sigrid \
+    && pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir /sources/report-generator \
     && rm -rf /sources \
     && pip install --no-cache-dir -r /integrations/objectives-report/requirements.txt \
