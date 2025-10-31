@@ -19,19 +19,31 @@ from datetime import datetime
 @dataclass
 class Issue:
     id: str
+    url: str
     project: str
     title: str
-    status: str
+    descriptionLength: int
     created: datetime
     closed: datetime
     author: str
-    assignee: str
-    epic: str
+    assignees: list[str]
+    epicId: str
     labels: list[str]
 
+    
+@dataclass
+class Epic:
+    id: str
+    url: str
+    title: str
+    created: datetime
+    closed: datetime
+    labels: list[str]
 
+    
 @dataclass
 class IssueTrackerData:
     platform: str
     exported: datetime
     issues: list[Issue]
+    epics: list[Epic]
