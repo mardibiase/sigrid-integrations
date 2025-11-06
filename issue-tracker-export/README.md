@@ -55,8 +55,12 @@ These scripts will export the issue tracker data to a location where it can be p
 
 You can export your JIRA issues from your pipeline using these scripts. Depending on your environment, you can
 either clone this repository and then run the script, or you can run the script via the Docker container.
-Running this script requires the environment variable `JIRA_API_TOKEN` containing a valid
-[JIRA personal access token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html).
+
+Running this script requires two environment variables:
+
+- `JIRA_API_TOKEN` containing a valid
+  [JIRA personal access token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html).
+- `JIRA_API_USER` containing the email address of the JIRA user that owns the personal access token.
 
     ./export_jira_issues.py --jira-base-url jira.example.com --project AAP
 
