@@ -14,31 +14,91 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import itertools
-import json
 import os
 import sys
-import urllib.request
 from argparse import ArgumentParser
+from collections import defaultdict
 from openpyxl import Workbook
 
-
-def fetch_objectives_status():
-    request = urllib.request.Request(f"{args.sigridurl}/rest/analysis-results/api/v1/objectives-evaluation/{args.customer}")
-    request.add_header("Accept", "application/json")
-    request.add_header("Authorization", f"Bearer {os.environ['SIGRID_CI_TOKEN']}".encode("utf8"))
-    with urllib.request.urlopen(request) as response:
-        return json.load(response)["systems"]
+from sigrid_api_client import SigridApiClient
 
 
-def create_table(objectives):
-    get_objective_types = lambda system: [obj["type"] for obj in system["objectives"]]
-    all_objective_types = set(itertools.chain.from_iterable(get_objective_types(system) for system in objectives))
-    yield ["system"] + list(all_objective_types)
+OBJECTIVE_DISPLAY_NAMES = {
+    "OSH_MAX_SEVERITY" : "Open Source vulnerabilities",
+    "OSH_MAX_FRESHNESS_RISK" : "Open Source freshness",
+    "OSH_MAX_LICENSE_RISK" : "Open Source licenses",
+    "SECURITY_MAX_SEVERITY" : "Security",
+    "RELIABILITY_MAX_SEVERITY" : "Reliability"
+}
 
-    for system in objectives:
-        values = {obj["type"]: obj["targetMetAtEnd"] for obj in system["objectives"]}
-        yield [system["systemName"]] + [values.get(type, "") for type in all_objective_types]
+
+def groupObjectivesByType(activeSystems, objectives):
+    objectivesByType = defaultdict(list)
+    for system in activeSystems:
+        for objective in objectives[system]:
+            objectivesByType[objective["type"]].append(objective)
+    return objectivesByType
+
+
+def formatObjectiveEvaluation(objectives, system, type):
+    for objective in objectives[system]:
+        if objective["type"] == type:
+            if objective["targetMetAtEnd"] == "MET":
+                return 1
+            elif objective["targetMetAtEnd"] == "NOT_MET":
+                return 0
+    return ""
+
+
+def toExcel(activeSystems, metadata, objectives):
+    workbook = Workbook()
+    populatePerSystemSheet(workbook.create_sheet("Per system"), activeSystems, metadata, objectives)
+    populatePerObjectiveSheet(workbook.create_sheet("Per objective"), activeSystems, objectives)
+    populateSystemDetailsSheet(workbook.create_sheet("System details"), activeSystems, metadata, objectives)
+    populateFindingsSheet(workbook.create_sheet("Findings"))
+    del workbook["Sheet"]
+    return workbook
+
+
+def populatePerSystemSheet(sheet, activeSystems, metadata, objectives):
+    sheet.append(["System name", "Lifecyle phase", "Count of objectives met", "Count of objectives not met"])
+    for system in activeSystems:
+        displayName = metadata[system]["displayName"] or system
+        lifecycle = (metadata[system]["lifecyclePhase"] or "").title()
+        met = sum(1 for objective in objectives[system] if objective["targetMetAtEnd"] == "MET")
+        unmet = sum(1 for objective in objectives[system] if objective["targetMetAtEnd"] == "NOT_MET")
+        sheet.append([displayName, lifecycle, met, unmet])
+
+
+def populatePerObjectiveSheet(sheet, activeSystems, objectives):
+    objectivesByType = groupObjectivesByType(activeSystems, objectives)
+
+    sheet.append(["Objective", "Number of systems where it is met", "Number of systems where it is not met"])
+    for type in sorted(objectivesByType.keys()):
+        displayName = OBJECTIVE_DISPLAY_NAMES.get(type, type.title().replace("_", " "))
+        met = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "MET")
+        unmet = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "NOT_MET")
+        sheet.append([displayName, met, unmet])
+
+
+def populateSystemDetailsSheet(sheet, activeSystems, metadata, objectives):
+    types = sorted(groupObjectivesByType(activeSystems, objectives).keys())
+
+    sheet.append(["System name"] + [f"{type} met?" for type in types])
+    for system in activeSystems:
+        displayName = metadata[system]["displayName"] or system
+        evaluations = [formatObjectiveEvaluation(objectives, system, type) for type in types]
+        sheet.append([displayName] + evaluations)
+
+
+def populateFindingsSheet(sheet):
+    pass
+#     Findings Level	Number of findings January	Number of Findings February
+# Critical 	100	200
+# High
+# Medium
+# Low
+# Resolved
 
 
 if __name__ == "__main__":
@@ -52,7 +112,10 @@ if __name__ == "__main__":
         print("Missing Sigrid API token in environment variable SIGRID_CI_TOKEN")
         sys.exit(1)
 
-    workbook = Workbook()
-    for row in create_table(fetch_objectives_status()):
-        workbook.active.append(row)
+    sigrid = SigridApiClient(args.sigridurl, args.customer)
+    metadata = sigrid.fetchMetadata()
+    activeSystems = [name for name, meta in metadata.items() if meta["active"] and not meta["isDevelopmentOnly"]]
+    objectives = {eval["systemName"]: eval["objectives"] for eval in sigrid.fetchObjectivesEvaluation()}
+
+    workbook = toExcel(activeSystems, metadata, objectives)
     workbook.save(os.path.expanduser(args.out))
