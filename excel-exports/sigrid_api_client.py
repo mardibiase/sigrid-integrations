@@ -40,3 +40,6 @@ class SigridApiClient:
     def fetchObjectivesEvaluation(self):
         response = self.callEndPoint(f"/objectives-evaluation/{self.customer}")
         return response["systems"]
+
+    def fetchSecurityFindings(self, system):
+        return self.callEndPoint(f"/security-findings/{self.customer}/{system}")

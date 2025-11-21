@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import os
 import sys
 from argparse import ArgumentParser
@@ -44,10 +45,18 @@ def formatObjectiveEvaluation(objectives, system, type):
     for objective in objectives[system]:
         if objective["type"] == type:
             if objective["targetMetAtEnd"] == "MET":
-                return 1
+                return [formatTarget(objective), 1]
             elif objective["targetMetAtEnd"] == "NOT_MET":
-                return 0
-    return ""
+                return [formatTarget(objective), 0]
+    return ["", ""]
+
+
+def formatObjectiveType(type):
+    return OBJECTIVE_DISPLAY_NAMES.get(type, type.title().replace("_", " "))
+
+
+def formatTarget(objective):
+    return f"{objective['level'].title()} target: {objective['target']}"
 
 
 def toExcel(activeSystems, metadata, objectives):
@@ -55,7 +64,6 @@ def toExcel(activeSystems, metadata, objectives):
     populatePerSystemSheet(workbook.create_sheet("Per system"), activeSystems, metadata, objectives)
     populatePerObjectiveSheet(workbook.create_sheet("Per objective"), activeSystems, objectives)
     populateSystemDetailsSheet(workbook.create_sheet("System details"), activeSystems, metadata, objectives)
-    populateFindingsSheet(workbook.create_sheet("Findings"))
     del workbook["Sheet"]
     return workbook
 
@@ -75,7 +83,7 @@ def populatePerObjectiveSheet(sheet, activeSystems, objectives):
 
     sheet.append(["Objective", "Number of systems where it is met", "Number of systems where it is not met"])
     for type in sorted(objectivesByType.keys()):
-        displayName = OBJECTIVE_DISPLAY_NAMES.get(type, type.title().replace("_", " "))
+        displayName = formatObjectiveType(type)
         met = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "MET")
         unmet = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "NOT_MET")
         sheet.append([displayName, met, unmet])
@@ -83,22 +91,13 @@ def populatePerObjectiveSheet(sheet, activeSystems, objectives):
 
 def populateSystemDetailsSheet(sheet, activeSystems, metadata, objectives):
     types = sorted(groupObjectivesByType(activeSystems, objectives).keys())
+    columns = [[f"Associated {formatObjectiveType(type)} objective", f"{formatObjectiveType(type)} objective met?"] for type in types]
 
-    sheet.append(["System name"] + [f"{type} met?" for type in types])
+    sheet.append(["System name"] + list(itertools.chain(*columns)))
     for system in activeSystems:
         displayName = metadata[system]["displayName"] or system
         evaluations = [formatObjectiveEvaluation(objectives, system, type) for type in types]
-        sheet.append([displayName] + evaluations)
-
-
-def populateFindingsSheet(sheet):
-    pass
-#     Findings Level	Number of findings January	Number of Findings February
-# Critical 	100	200
-# High
-# Medium
-# Low
-# Resolved
+        sheet.append([displayName] + list(itertools.chain(*evaluations)))
 
 
 if __name__ == "__main__":
