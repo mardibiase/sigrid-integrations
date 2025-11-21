@@ -14,17 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dateutil.parser
 import itertools
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
+from datetime import datetime
 
-from issue_data import Issue, IssueTrackerData
-from issue_data_serializer import IssueDataSerializer
+from issue_data import Epic, Issue, IssueTrackerData
+from issue_utils import parseDate, serialize, filterIssueData
+
+
+def sendRequest(url):
+    try:
+        request = urllib.request.Request(f"{url}")
+        request.add_header("PRIVATE-TOKEN", os.environ["GITLAB_API_TOKEN"])
+        with urllib.request.urlopen(request) as response:
+            yield json.loads(response.read().decode("utf8"))
+    except urllib.error.HTTPError as e:
+        print(f"Warning: Cannot access {url}, HTTP status {e.code}")
 
 
 def sendMultipartRequest(url):
@@ -37,37 +48,51 @@ def sendMultipartRequest(url):
                 break
 
 
-def fetchIssues(baseURL, groups, projects):
-    for group in groups:
-        slug = urllib.parse.quote_plus(group)
-        for issue in sendMultipartRequest(f"{baseURL}/api/v4/groups/{slug}/issues?scope=all&state=all"):
-            yield parseIssue(issue)
+def fetchIssues(baseURL, groups, projects, start):
+    groupURLs = [f"{baseURL}/api/v4/groups/{urllib.parse.quote_plus(group)}/issues" for group in groups]
+    projectURLs = [f"{baseURL}/api/v4/projects/{urllib.parse.quote_plus(project)}/issues" for project in projects]
 
-    for project in projects:
-        slug = urllib.parse.quote_plus(project)
-        for issue in sendMultipartRequest(f"{baseURL}/api/v4/projects/{slug}/issues?scope=all&state=all"):
-            yield parseIssue(issue)
-    
-
-def parseDate(value):
-    if value in (None, "", "None"):
-        return None
-    return dateutil.parser.isoparse(value)
+    for url in (groupURLs + projectURLs):
+        for issue in sendMultipartRequest(f"{url}?scope=all&state=all&created_after={start}"):
+            if not issue.get("moved_to_id"):
+                yield parseIssue(issue)
 
 
 def parseIssue(issue):
     return Issue(
         id=issue["id"],
+        url=issue["web_url"],
         project=issue["references"]["full"].split("#")[0],
         title=issue["title"],
-        status=issue["state"],
+        descriptionLength=len(issue["description"] or ""),
         created=parseDate(issue["created_at"]),
         closed=parseDate(issue["closed_at"]),
         author=issue["author"]["name"],
-        assignee=issue["assignee"]["name"] if issue["assignee"] else None,
-        epic=issue["epic"]["title"] if issue["epic"] else None,
+        assignees=[assignee["name"] for assignee in issue["assignees"]],
+        epicId=f"{issue['epic']['group_id']}::{issue['epic']['id']}::{issue['epic']['iid']}" if issue["epic"] else None,
         labels=issue["labels"]
     )
+
+            
+def fetchEpics(baseURL, issues):
+    epicIds = set(issue.epicId for issue in issues if issue.epicId)
+    for epicId in epicIds:
+        groupId, id, iid = epicId.split("::")
+        for epic in sendRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{iid}"):
+            yield Epic(
+                id=epicId,
+                url=epic["web_url"],
+                title=epic["title"],
+                created=parseDate(epic["created_at"]),
+                closed=parseDate(epic["closed_at"]),
+                labels=epic["labels"]
+            )
+
+
+def exportGitLabIssues(baseURL, groups, projects, start):
+    issues = list(fetchIssues(baseURL, groups, projects, start))
+    epics = list(fetchEpics(baseURL, issues))
+    return IssueTrackerData("GitLab", datetime.now(), issues, epics)
 
 
 if __name__ == "__main__":
@@ -75,7 +100,10 @@ if __name__ == "__main__":
     parser.add_argument("--gitlab-base-url", type=str, required=True, help="GitLab base URL.")
     parser.add_argument("--group", type=str, default="", help="Comma-separated list of GitLab group paths.")
     parser.add_argument("--project", type=str, default="", help="Comma-separated list of GitLab project paths.")
-    parser.add_argument("--out", type=str, default=".sigrid", help="Output directory.")
+    parser.add_argument("--exclude-labels", type=str, default="", help="Comma-separated labels to be excluded.")
+    parser.add_argument("--out", type=str, default=".sigrid/gitlab-issues.json", help="Output file.")
+    parser.add_argument("--start", type=str, default="1970-01-01", help="Export issues created after (yyyy-mm-dd).")
+    parser.add_argument("--anonymize", action="store_true", help="Anonymize author names.")
     args = parser.parse_args()
 
     if not "GITLAB_API_TOKEN" in os.environ:
@@ -84,8 +112,10 @@ if __name__ == "__main__":
 
     groups = args.group.split("," if args.group else None)
     projects = args.project.split("," if args.project else None)
-    outputDir = os.path.expanduser(args.out)
-
-    issues = list(fetchIssues(args.gitlab_base_url, groups, projects))
-    IssueDataSerializer.serialize("GitLab", issues, outputDir)
-    print(f"Exported {len(issues)} issues to {outputDir}")
+    excludeLabels = args.exclude_labels.split(",") if args.exclude_labels else []
+    
+    data = exportGitLabIssues(args.gitlab_base_url, groups, projects, args.start)
+    filterIssueData(data, excludeLabels)
+    outputFile = os.path.expanduser(args.out)
+    serialize(data, outputFile, args.anonymize)
+    print(f"Exported {len(data.issues)} issues and {len(data.epics)} epics to {outputFile}")
