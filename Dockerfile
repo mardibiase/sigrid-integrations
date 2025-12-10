@@ -10,9 +10,8 @@ COPY report-generator/ /sources/report-generator
 RUN apk add --no-cache \
         build-base \
         git \
-        py3-lxml=5.3.1-r3 \
     && adduser -S sigrid \
-    && pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir --upgrade pip setuptools wheel lxml \
     && pip install --no-cache-dir /sources/report-generator \
     && rm -rf /sources \
     && pip install --no-cache-dir -r /integrations/objectives-report/requirements.txt \
