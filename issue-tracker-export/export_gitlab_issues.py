@@ -24,7 +24,7 @@ import urllib.request
 from argparse import ArgumentParser
 from datetime import datetime
 
-from issue_data import Epic, Issue, IssueTrackerData
+from issue_data import Epic, Issue, IssueTrackerData, PullRequest
 from issue_utils import parseDate, serialize, filterIssueData
 
 
@@ -89,10 +89,31 @@ def fetchEpics(baseURL, issues):
             )
 
 
-def exportGitLabIssues(baseURL, groups, projects, start):
+def fetchPullRequests(baseURL, groups, projects, start):
+    groupURLs = [f"{baseURL}/api/v4/groups/{urllib.parse.quote_plus(group)}/merge_requests" for group in groups]
+    projectURLs = [f"{baseURL}/api/v4/projects/{urllib.parse.quote_plus(project)}/merge_requests" for project in projects]
+
+    for url in (groupURLs + projectURLs):
+        for pr in sendMultipartRequest(f"{url}?state=all&scope=all&include_subgroups=true&&created_after={start}"):
+            yield PullRequest(
+                id=pr["id"],
+                url=pr["web_url"],
+                project=pr["references"]["full"].split("#")[0],
+                title=pr["title"],
+                created=parseDate(pr["created_at"]),
+                closed=parseDate(pr["merged_at"]),
+                assignees=[assignee["name"] for assignee in pr["assignees"]],
+                reviewers=[reviewer["name"] for reviewer in pr["reviewers"]],
+                sourceBranch=pr["source_branch"],
+                targetBranch=pr["target_branch"]
+            )
+
+
+def exportGitLabData(baseURL, groups, projects, start):
     issues = list(fetchIssues(baseURL, groups, projects, start))
     epics = list(fetchEpics(baseURL, issues))
-    return IssueTrackerData("GitLab", datetime.now(), issues, epics)
+    pullRequests = list(fetchPullRequests(baseURL, groups, projects, start))
+    return IssueTrackerData("GitLab", datetime.now(), issues, epics, pullRequests)
 
 
 if __name__ == "__main__":
@@ -114,8 +135,8 @@ if __name__ == "__main__":
     projects = args.project.split("," if args.project else None)
     excludeLabels = args.exclude_labels.split(",") if args.exclude_labels else []
     
-    data = exportGitLabIssues(args.gitlab_base_url, groups, projects, args.start)
+    data = exportGitLabData(args.gitlab_base_url, groups, projects, args.start)
     filterIssueData(data, excludeLabels)
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
-    print(f"Exported {len(data.issues)} issues and {len(data.epics)} epics to {outputFile}")
+    print(f"Exported {len(data.issues)} issues, {len(data.epics)} epics, {len(data.pullRequests)} PRs to {outputFile}")

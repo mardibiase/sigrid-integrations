@@ -40,6 +40,20 @@ class Epic:
     closed: datetime
     labels: list[str]
 
+
+@dataclass
+class PullRequest:
+    id: str
+    url: str
+    project: str
+    title: str
+    created: datetime
+    closed: datetime
+    assignees: list[str]
+    reviewers: list[str]
+    sourceBranch: str
+    targetBranch: str
+
     
 @dataclass
 class IssueTrackerData:
@@ -47,3 +61,5 @@ class IssueTrackerData:
     exported: datetime
     issues: list[Issue]
     epics: list[Epic]
+    pullRequests: list[PullRequest]
+

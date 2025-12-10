@@ -78,7 +78,7 @@ if __name__ == "__main__":
     items = list(fetchIssues(args.jira_base_url, args.project.split(",")))
     epics = [item for type, item in items if type == args.epic_type]
     issues = [item for type, item in items if type != args.epic_type]
-    data = IssueTrackerData("JIRA", datetime.now(), issues, epics)
+    data = IssueTrackerData("JIRA", datetime.now(), issues, epics, [])
 
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)

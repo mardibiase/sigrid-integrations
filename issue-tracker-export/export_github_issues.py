@@ -68,6 +68,14 @@ def parseMilestone(milestone):
     )
 
 
+def fetchPullRequests(apiBaseURL, org, repo):
+    return []
+
+
+def combine(repoData):
+    return list(itertools.chain(*repoData))
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(description="Exports GitHub issues into a format that can be analyzed by Sigrid.")
     parser.add_argument("--github-api-url", type=str, default="https://api.github.com")
@@ -81,13 +89,12 @@ if __name__ == "__main__":
         print("Missing environment variable GITHUB_API_TOKEN")
         sys.exit(1)
 
-    repoIssues = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in args.repo.split(",")]
-    issues = list(itertools.chain(*repoIssues))
+    repos = args.repo.split(",")
+    repoIssues = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in repos]
+    repoMilestones = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in repos]
+    repoPRs = [list(fetchPullRequests(args.github_api_url, args.org, repo)) for repo in repos]
 
-    repoMilestones = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in args.repo.split(",")]
-    milestones = list(itertools.chain(*repoMilestones))
-
-    data = IssueTrackerData("GitHub", datetime.now(), issues, milestones)
+    data = IssueTrackerData("GitHub", datetime.now(), combine(repoIssues), combine(repoMilestones), combine(repoPRs))
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
-    print(f"Exported {len(data.issues)} issues and {len(data.epics)} epics to {outputFile}")
+    print(f"Exported {len(data.issues)} issues, {len(data.epics)} epics, {len(data.pullRequests)} PRs to {outputFile}")

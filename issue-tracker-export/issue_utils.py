@@ -34,6 +34,9 @@ def serialize(data, outputFile, anonymize):
         for issue in data.issues:
             issue.author = anonymizeAuthorName(issue.author) if issue.author else None
             issue.assignees = [anonymizeAuthorName(assignee) for assignee in issue.assignees]
+        for pr in data.pullRequests:
+            pr.assignees = [anonymizeAuthorName(assignee) for assignee in pr.assignees]
+            pr.reviewers = [anonymizeAuthorName(reviewer) for reviewer in pr.reviewers]
 
     with open(outputFile, "w", encoding="utf8") as f:
         dump(asdict(data), f, indent=4, ensure_ascii=False, default=serializeFieldToJSON)
