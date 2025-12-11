@@ -6,6 +6,7 @@ on:
       - 'report-generator/**'
   pull_request:
     paths:
+      - '.github/workflows/report-generator-compatibility-check.yml'
       - 'report-generator/**'
 jobs:
   compatibility-check:
