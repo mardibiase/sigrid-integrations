@@ -11,7 +11,7 @@ RUN apk add --no-cache \
         build-base \
         git \
     && adduser -S sigrid \
-    && pip install --no-cache-dir --upgrade pip setuptools wheel lxml \
+    && pip install --no-cache-dir --upgrade pip setuptools wheel lxml==6.0.2 \
     && pip install --no-cache-dir /sources/report-generator \
     && rm -rf /sources \
     && pip install --no-cache-dir -r /integrations/objectives-report/requirements.txt \
