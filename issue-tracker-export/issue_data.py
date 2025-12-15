@@ -51,8 +51,6 @@ class PullRequest:
     closed: datetime
     assignees: list[str]
     reviewers: list[str]
-    sourceBranch: str
-    targetBranch: str
 
     
 @dataclass

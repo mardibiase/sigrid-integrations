@@ -103,9 +103,7 @@ def fetchPullRequests(baseURL, groups, projects, start):
                 created=parseDate(pr["created_at"]),
                 closed=parseDate(pr["merged_at"]),
                 assignees=[assignee["name"] for assignee in pr["assignees"]],
-                reviewers=[reviewer["name"] for reviewer in pr["reviewers"]],
-                sourceBranch=pr["source_branch"],
-                targetBranch=pr["target_branch"]
+                reviewers=[reviewer["name"] for reviewer in pr["reviewers"]]
             )
 
 

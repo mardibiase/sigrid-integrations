@@ -24,21 +24,24 @@ import urllib.request
 from argparse import ArgumentParser
 from datetime import datetime
 
-from issue_data import Epic, Issue, IssueTrackerData
+from issue_data import Epic, Issue, IssueTrackerData, PullRequest
 from issue_utils import parseDate, serialize
 
 
-def fetchIssues(apiBaseURL, org, repo):
-    url = f"{apiBaseURL}/repos/{org}/{repo}/issues?state=all"
+def fetchAll(apiBaseURL, org, repo, path):
+    url = f"{apiBaseURL}/repos/{org}/{repo}{path}&per_page=100&page=1"
     while url is not None:
         request = urllib.request.Request(url)
         request.add_header("Authorization", f"Bearer: {os.environ['GITHUB_API_TOKEN']}")
         with urllib.request.urlopen(request) as response:
-            issues = json.loads(response.read().decode("utf8"))
-            for issue in issues:
-                yield parseIssue(org, repo, issue)
+            for element in json.loads(response.read().decode("utf8")):
+                yield element
             link = re.compile("<(\\S+?)>; rel=\"next\"").search(response.headers.get("link", ""))
             url = link.group(1) if link else None
+
+
+def fetchIssues(apiBaseURL, org, repo):
+    return [parseIssue(org, repo, issue) for issue in fetchAll(apiBaseURL, org, repo, "/issues?state=all")]
 
 
 def parseIssue(org, repo, issue):
@@ -57,6 +60,10 @@ def parseIssue(org, repo, issue):
     )
 
 
+def fetchMilestones(apiBaseURL, org, repo):
+    return [parseMilestone(milestone) for milestone in fetchAll(apiBaseURL, org, repo, "/milestones?state=all")]
+
+
 def parseMilestone(milestone):
     return Epic(
         id=milestone["id"],
@@ -69,7 +76,20 @@ def parseMilestone(milestone):
 
 
 def fetchPullRequests(apiBaseURL, org, repo):
-    return []
+    return [parsePullRequest(org, repo, pr) for pr in fetchAll(apiBaseURL, org, repo, "/pulls?state=all")]
+
+
+def parsePullRequest(org, repo, pr):
+    return PullRequest(
+        id=pr["id"],
+        url=pr["url"],
+        project=f"{org}/{repo}",
+        title=pr["title"],
+        created=parseDate(pr["created_at"]),
+        closed=parseDate(pr["merged_at"]),
+        assignees=[assignee["login"] for assignee in pr["assignees"]],
+        reviewers=[reviewer["login"] for reviewer in pr["requested_reviewers"]],
+    )
 
 
 def combine(repoData):
@@ -91,7 +111,7 @@ if __name__ == "__main__":
 
     repos = args.repo.split(",")
     repoIssues = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in repos]
-    repoMilestones = [list(fetchIssues(args.github_api_url, args.org, repo)) for repo in repos]
+    repoMilestones = [list(fetchMilestones(args.github_api_url, args.org, repo)) for repo in repos]
     repoPRs = [list(fetchPullRequests(args.github_api_url, args.org, repo)) for repo in repos]
 
     data = IssueTrackerData("GitHub", datetime.now(), combine(repoIssues), combine(repoMilestones), combine(repoPRs))
