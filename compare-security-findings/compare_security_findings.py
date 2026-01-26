@@ -43,8 +43,8 @@ def fetch_api_data(customer: str, token: str, system: str) -> Any:
             logger.error("Access forbidden. Please check your API token and permissions.")
             raise RuntimeError("Access forbidden. Please check your API token and permissions.") from e
         elif e.code == 404:
-            logger.error("Resource not found. Please check the customer name provided.")
-            raise RuntimeError("Resource not found. Please check the customer name provided.") from e
+            logger.error("Resource not found. Please check the customer name and system namesprovided.")
+            raise RuntimeError("Resource not found. Please check the customer name and system names provided.") from e
         else:
             logger.error(f"HTTP error occurred: {e.code} {e.reason}")
             raise RuntimeError(f"HTTP error occurred: {e.code} {e.reason}") from e
@@ -80,19 +80,17 @@ def create_fuzzy_finding_key(finding: Dict) -> str:
     return f"{finding.get('filePath', '')}|{finding.get('type', '')}|{finding.get('cweId', '')}|{finding.get('ruleId', '')}"
 
 
-def find_fuzzy_match(new_finding: Dict, main_findings: List[Dict], line_tolerance: int = 10) -> Optional[Dict]:
-    """Find a potential matching finding in main that is similar but at different line numbers."""
-    fuzzy_key = create_fuzzy_finding_key(new_finding)
+def find_fuzzy_match(new_finding: Dict, candidate_findings: List[Dict], line_tolerance: int = 10) -> Optional[Dict]:
+    """Find a potential matching finding in candidates that is similar but at different line numbers."""
     new_start = new_finding.get('startLine', 0)
     
-    for main_finding in main_findings:
-        if create_fuzzy_finding_key(main_finding) == fuzzy_key:
-            main_start = main_finding.get('startLine', 0)
-            line_diff = abs(new_start - main_start)
-            
-            if line_diff <= line_tolerance:
-                logger.debug(f"Fuzzy match found: line difference of {line_diff}")
-                return main_finding
+    for candidate in candidate_findings:
+        candidate_start = candidate.get('startLine', 0)
+        line_diff = abs(new_start - candidate_start)
+        
+        if line_diff <= line_tolerance:
+            logger.debug(f"Fuzzy match found: line difference of {line_diff}")
+            return candidate
     
     return None
 
@@ -102,13 +100,21 @@ def compare_findings(main_findings: List[Dict], new_findings: List[Dict], line_t
     main_exact_keys = {create_exact_finding_key(f) for f in main_findings}
     logger.debug(f"Main system exact keys: {main_exact_keys}")
     
+    # Pre-group main findings by their fuzzy key for O(1) lookup instead of O(m) iteration
+    main_findings_by_fuzzy_key: Dict[str, List[Dict]] = {}
+    for main_finding in main_findings:
+        fuzzy_key = create_fuzzy_finding_key(main_finding)
+        main_findings_by_fuzzy_key.setdefault(fuzzy_key, []).append(main_finding)
+    
     new_only_findings = []
     for finding in new_findings:
         exact_key = create_exact_finding_key(finding)
         
         if exact_key not in main_exact_keys:
-            # No exact match, check for fuzzy match
-            fuzzy_match = find_fuzzy_match(finding, main_findings, line_tolerance)
+            # No exact match, check for fuzzy match using pre-grouped candidates
+            fuzzy_key = create_fuzzy_finding_key(finding)
+            candidate_main_findings = main_findings_by_fuzzy_key.get(fuzzy_key, [])
+            fuzzy_match = find_fuzzy_match(finding, candidate_main_findings, line_tolerance)
             
             if fuzzy_match:
                 # Add fuzzy match information to the finding
