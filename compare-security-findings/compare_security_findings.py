@@ -46,7 +46,7 @@ def fetch_api_data(customer: str, token: str, system: str) -> Any:
             logger.error("Resource not found. Please check the customer name provided.")
             raise RuntimeError("Resource not found. Please check the customer name provided.") from e
         else:
-            logger.error("HTTP error occurred: {e.code} {e.reason}")
+            logger.error(f"HTTP error occurred: {e.code} {e.reason}")
             raise RuntimeError(f"HTTP error occurred: {e.code} {e.reason}") from e
     except urllib.error.URLError as e:
         logger.error(f"Failed to connect to the API: {e.reason}")
@@ -287,7 +287,7 @@ def main():
 
     customer_name = args.customer.lower()
     main_system = args.main_system
-    new_system =  args.new_system
+    new_system = args.new_system
     line_tolerance = args.line_tolerance
 
     if args.output:
@@ -299,8 +299,6 @@ def main():
         logger.info(f"Fetching data for customer: {customer_name}")
         main_system_data = fetch_api_data(customer_name, token, main_system)
         new_system_data = fetch_api_data(customer_name, token, new_system)
-        print(main_system_data)
-        print(new_system_data)
         logger.info("Data fetched successfully. Processing output...")
         
         process_api_output(main_system_data, new_system_data, output_file, line_tolerance)
