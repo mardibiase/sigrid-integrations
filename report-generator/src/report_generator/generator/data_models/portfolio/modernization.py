@@ -139,7 +139,7 @@ class ModernizationData:
         renovation_effort = get_renovation_effort(scenario, architecture_metrics, volume_in_py)
 
         return ModernizationCandidate(
-            display_name=metadata.get("displayName") or metadata["systemName"],
+            display_name=metadata.get("displayName") or metadata.get("systemName") or system["system"],
             business_criticality=metadata.get("businessCriticality") or "unknown",
             volume_in_py=volume_in_py,
             activity_in_py=get_activity(volume_in_py, architecture_graph),
@@ -174,8 +174,8 @@ class ModernizationData:
         return self.to_modernization_candidate(maintainability, metadata)
 
     @cached_property
-    def modernization_candidates_by_technical_debt(self) -> list[ModernizationCandidate]:
-        return sorted(self.modernization_candidates, key=lambda candidate: -candidate.technical_debt_in_py)
+    def modernization_candidates_by_estimated_effort(self) -> list[ModernizationCandidate]:
+        return sorted(self.modernization_candidates, key=lambda candidate: -candidate.estimated_effort_py)
 
     @cached_property
     def total_volume(self):
