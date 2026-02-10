@@ -16,6 +16,9 @@ jobs:
       - name: "Install dependencies"
         run: |
           pip3 install -e "./report-generator/[test]"
+          pip3 install python-ldap \
+            --global-option=build_ext \
+            --global-option="-I$(xcrun --show-sdk-path)/usr/include/sasl"
           pip3 install -r ldap-group-sync/requirements.txt
       - name: "Run tests"
         run: |
