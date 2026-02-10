@@ -17,9 +17,9 @@
 import os
 import sys
 
-from ldap_connection import LdapConfig, LdapConnection, LdapGroup
-from sigrid_user_management import SigridUserManagement
-from sync import syncUserGroups
+from sigridldap.ldap_connection import LdapConfig, LdapConnection
+from sigridldap.sigrid_user_management import SigridUserManagement
+from sigridldap.sync import syncUserGroups
 
 
 def getRequiredEnv(name: str) -> str:
@@ -41,8 +41,11 @@ if __name__ == "__main__":
         bindPassword=getRequiredEnv("SIGRID_LDAP_BIND_PASSWORD"),
         userDN=getRequiredEnv("SIGRID_LDAP_USER_DN"),
         userQuery=getRequiredEnv("SIGRID_LDAP_USER_QUERY"),
+        userNameAttr=getRequiredEnv("SIGRID_LDAP_USER_NAME_ATTR"),
+        userEmailAttr=getRequiredEnv("SIGRID_LDAP_USER_EMAIL_ATTR"),
         groupDN=getRequiredEnv("SIGRID_LDAP_GROUP_DN"),
-        groupQuery=getRequiredEnv("SIGRID_LDAP_GROUP_QUERY")
+        groupQuery=getRequiredEnv("SIGRID_LDAP_GROUP_QUERY"),
+        groupNameAttr=getRequiredEnv("SIGRID_LDAP_GROUP_NAME_ATTR")
     )
     ldapConnection = LdapConnection(ldapConfig)
 

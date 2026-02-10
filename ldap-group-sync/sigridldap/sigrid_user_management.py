@@ -53,5 +53,20 @@ class SigridUserManagement:
 
     def updateGroupMembers(self, groupId: str, userIds: list[str]):
         return self.callEndPoint("PUT", f"/rest/auth/api/user-management/{self.customer}/groups/{groupId}/members", {
-            "userIds", userIds
+            "users": userIds
         })
+
+    def listUsers(self):
+        response = self.callEndPoint("GET", f"/rest/auth/api/user-management/{self.customer}/users")
+        return response.json()["users"]
+
+    def createUser(self, email: str, firstName: str, lastName: str):
+        response = self.callEndPoint("POST", f"/rest/auth/api/user-management/{self.customer}/users", {
+            "userInfo": {
+                "firstName": firstName,
+                "lastName": lastName,
+                "emailAddress": email
+            },
+            "isSSO": True
+        })
+        return response.json()

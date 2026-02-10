@@ -23,13 +23,19 @@ class LdapConfig:
     bindPassword: str
     userDN: str
     userQuery: str
+    userNameAttr: str
+    userEmailAttr: str
     groupDN: str
     groupQuery: str
+    groupNameAttr: str
 
 
 @dataclass
 class LdapUser:
+    uid: str
     email: str
+    firstName: str
+    lastName: str
 
 
 @dataclass
@@ -46,16 +52,21 @@ class LdapConnection:
 
     def listUsers(self) -> list[LdapUser]:
         objects = self.connection.search_s(self.config.userDN, ldap.SCOPE_SUBTREE, self.config.userQuery)
-        return [self.parseUserObject(object) for object in objects]
+        return [self.parseUserObject(object) for object in objects if self.config.userEmailAttr in object[1]]
 
     def parseUserObject(self, object) -> LdapUser:
-        pass
+        uid = object[0]
+        email = object[1][self.config.userEmailAttr][0].decode("utf8")
+        name = object[1][self.config.userNameAttr][0].decode("utf8")
+        firstName = name.split(" ")[0] if " " in name else name
+        lastName = name[len(firstName) + 1:] if " " in name else name
+        return LdapUser(uid, email, firstName, lastName)
 
     def listGroups(self) -> list[LdapGroup]:
         objects = self.connection.search_s(self.config.groupDN, ldap.SCOPE_SUBTREE, self.config.groupQuery)
         return [self.parseGroupObject(object) for object in objects]
 
     def parseGroupObject(self, object) -> LdapGroup:
-        name = object[1]["cn"][0].decode("utf8")
+        name = object[1][self.config.groupNameAttr][0].decode("utf8")
         userIds = [member.decode("utf8") for member in object[1]["uniqueMember"]]
         return LdapGroup(name, userIds)
