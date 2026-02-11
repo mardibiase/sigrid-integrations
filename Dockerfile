@@ -11,13 +11,14 @@ COPY report-generator/ /sources/report-generator
 RUN apk add --no-cache \
         build-base \
         git \
+        py3-ldap \
+        py3-requests \
     && adduser -S sigrid \
     && pip install --no-cache-dir --upgrade pip setuptools wheel lxml==6.0.2 \
     && pip install --no-cache-dir /sources/report-generator \
     && rm -rf /sources \
     && pip install --no-cache-dir -r /integrations/objectives-report/requirements.txt \
-    && pip install --no-cache-dir -r /integrations/export-portfolio-dependencies/requirements.txt \
-    && pip install --no-cache-dir -r /integrations/ldap-group-sync/requirements.txt
+    && pip install --no-cache-dir -r /integrations/export-portfolio-dependencies/requirements.txt 
 
 ENV PATH="/integrations/objectives-report:/integrations/get-scope-file:/integrations/export-portfolio-dependencies:/integrations/polarion-integration:/integrations/issue-tracker-export:${PATH}::/integrations/ldap-group-sync:${PATH}"
 USER sigrid
