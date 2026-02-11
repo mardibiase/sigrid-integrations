@@ -22,9 +22,16 @@ jobs:
         run: |
           pip3 install -e "./report-generator/[test]"
           pip3 install -r ldap-group-sync/requirements.txt
-      - name: "Run tests"
+      
+      - name: "Report Generator tests"
         run: |
+          cd report-generator
           pytest --junitxml=results.xml
+          
+      - name: "LDAP Group Sync tests"
+        run: |
+          cd ldap-group-sync
+          pytest
 
       - name: "Upload test results"
         uses: actions/upload-artifact@v4
