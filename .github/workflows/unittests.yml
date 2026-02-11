@@ -25,8 +25,7 @@ jobs:
       
       - name: "Report Generator tests"
         run: |
-          cd report-generator
-          pytest --junitxml=results.xml
+          pytest --ignore=ldap-group-sync/ --junitxml=results.xml
           
       - name: "LDAP Group Sync tests"
         run: |
