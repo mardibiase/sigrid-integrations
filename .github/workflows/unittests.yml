@@ -30,7 +30,7 @@ jobs:
       - name: "LDAP Group Sync tests"
         run: |
           cd ldap-group-sync
-          pytest
+          python3 -m pytest
 
       - name: "Upload test results"
         uses: actions/upload-artifact@v4
