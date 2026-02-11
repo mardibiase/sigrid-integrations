@@ -16,10 +16,11 @@
 
 import os
 import sys
+from argparse import ArgumentParser
 
 from sigridldap.ldap_connection import LdapConfig, LdapConnection
 from sigridldap.sigrid_user_management import SigridUserManagement
-from sigridldap.sync import syncUserGroups
+from sigridldap.sync import syncUserGroups, syncGroupMemberships
 
 
 def getRequiredEnv(name: str) -> str:
@@ -30,6 +31,10 @@ def getRequiredEnv(name: str) -> str:
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser(description="Synchronizes group memberships from LDAP groups to Sigrid user groups.")
+    parser.add_argument("--override-groups", action="store_true", help="Force-replace all user groups with LDAP groups.")
+    args = parser.parse_args()
+
     sigridURL = os.environ.get("SIGRID_UM_URL", "https://sigrid-says.com")
     token = getRequiredEnv("SIGRID_UM_TOKEN")
     customer = getRequiredEnv("SIGRID_UM_CUSTOMER")
@@ -41,7 +46,8 @@ if __name__ == "__main__":
         bindPassword=getRequiredEnv("SIGRID_LDAP_BIND_PASSWORD"),
         userDN=getRequiredEnv("SIGRID_LDAP_USER_DN"),
         userQuery=getRequiredEnv("SIGRID_LDAP_USER_QUERY"),
-        userNameAttr=getRequiredEnv("SIGRID_LDAP_USER_NAME_ATTR"),
+        userFirstNameAttr=getRequiredEnv("SIGRID_LDAP_USER_NAME_ATTR"),
+        userLastNameAttr=getRequiredEnv("SIGRID_LDAP_USER_NAME_ATTR"),
         userEmailAttr=getRequiredEnv("SIGRID_LDAP_USER_EMAIL_ATTR"),
         groupDN=getRequiredEnv("SIGRID_LDAP_GROUP_DN"),
         groupQuery=getRequiredEnv("SIGRID_LDAP_GROUP_QUERY"),
@@ -49,4 +55,6 @@ if __name__ == "__main__":
     )
     ldapConnection = LdapConnection(ldapConfig)
 
-    syncUserGroups(sigrid, ldapConnection)
+    if args.override_groups:
+        syncUserGroups(sigrid, ldapConnection)
+    syncGroupMemberships(sigrid, ldapConnection)

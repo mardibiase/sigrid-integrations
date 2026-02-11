@@ -1,11 +1,9 @@
 # Sigrid LDAP group synchronization
 
-Synchronizes between Sigrid user groups and LDAP groups. This includes the following:
+Synchronizes group memberships from LDAP groups to Sigrid user groups.
 
-- For all LDAP groups, a corresponding Sigrid user group with the same name will be created.
-- All users in LDAP groups will be added to the corresponding Sigrid user groups.
-- Users that are no longer part of an LDAP group, will be removed from the corresponding Sigrid user group.
-- Sigrid user groups for which there is no longer a corresponding LDAP user group will be removed.
+Groups are assumed to be connected if the LDAP group and Sigrid user group have the same name. The group memberships
+for each Sigrid user group are then updated, based on the users in the corresponding LDAP group. 
 
 The [Sigrid user management API](https://docs.sigrid-says.com/integrations/sigrid-api-documentation.html#user-management)
 is used for interaction between these scripts and Sigrid.
@@ -22,21 +20,22 @@ is used for interaction between these scripts and Sigrid.
 
 Configuration is done using environment variables:
 
-| Name                           | Example                              | Description                                             |
-|--------------------------------|--------------------------------------|---------------------------------------------------------|
-| `SIGRID_UM_URL`                | https://sigrid-says.com              | Sigrid base URL.                                        |
-| `SIGRID_UM_CUSTOMER`           | mycompany                            | Your Sigrid customer name.                              |
-| `SIGRID_UM_TOKEN`              | (token)                              | Sigrid API token with administrator privileges.         |
-| `SIGRID_LDAP_URL`              | ldap://ldap.example.com:389          | LDAP URL.                                               |
-| `SIGRID_LDAP_BIND_DN`          | cn=read-only-admin,dc=example,dc=com | LDAP DN used for authenticating this integration.       |
-| `SIGRID_LDAP_BIND_PASSWORD`    | (password)                           | LDAP password used for authenticating this integration. |
-| `SIGRID_LDAP_USER_DN`          | dc=example,dc=com                    | Locations of users to sync.                             |
-| `SIGRID_LDAP_USER_QUERY`       | objectclass=inetOrgPerson            | Query on user DN to get the list of user objects.       |
-| `SIGRID_LDAP_USER_NAME_ATTR`   | cn                                   | Name of the name attribute for LDAP user objects.       |
-| `SIGRID_LDAP_USER_EMAIL_ATTR`  | mail                                 | Name of the email attribute for LDAP user objects.      |
-| `SIGRID_LDAP_GROUP_DN`         | dc=example,dc=com                    | Location of groups to sync.                             |
-| `SIGRID_LDAP_GROUP_QUERY`      | objectclass=groupOfUniqueNames       | Query on group DN to get the list of group objects.     |
-| `SIGRID_LDAP_GROUP_NAME_ATTR`  | cn                                   | Name of the name attribute for LDAP group objects.      |
+| Name                               | Example                              | Description                                                 |
+|------------------------------------|--------------------------------------|-------------------------------------------------------------|
+| `SIGRID_UM_URL`                    | https://sigrid-says.com              | Sigrid base URL.                                            |
+| `SIGRID_UM_CUSTOMER`               | mycompany                            | Your Sigrid customer name.                                  |
+| `SIGRID_UM_TOKEN`                  | (token)                              | Sigrid API token with administrator privileges.             |
+| `SIGRID_LDAP_URL`                  | ldap://ldap.example.com:389          | LDAP URL.                                                   |
+| `SIGRID_LDAP_BIND_DN`              | cn=read-only-admin,dc=example,dc=com | LDAP DN used for authenticating this integration.           |
+| `SIGRID_LDAP_BIND_PASSWORD`        | (password)                           | LDAP password used for authenticating this integration.     |
+| `SIGRID_LDAP_USER_DN`              | dc=example,dc=com                    | Locations of users to sync.                                 |
+| `SIGRID_LDAP_USER_QUERY`           | objectclass=inetOrgPerson            | Query on user DN to get the list of user objects.           |
+| `SIGRID_LDAP_USER_FIRST_NAME_ATTR` | cn                                   | Name of the LDAP attribute used for users' first names.     |
+| `SIGRID_LDAP_USER_LAST_NAME_ATTR`  | cn                                   | Name of the LDAP attribute used for users' last names.      |
+| `SIGRID_LDAP_USER_EMAIL_ATTR`      | mail                                 | Name of the LDAP attribute used for users' email addresses. |
+| `SIGRID_LDAP_GROUP_DN`             | dc=example,dc=com                    | Location of groups to sync.                                 |
+| `SIGRID_LDAP_GROUP_QUERY`          | objectclass=groupOfUniqueNames       | Query on group DN to get the list of group objects.         |
+| `SIGRID_LDAP_GROUP_NAME_ATTR`      | cn                                   | Name of the LDAP attribute used for group names.            |
 
 
 Once all environment variables are in place, you can run the integration:
@@ -45,14 +44,6 @@ Once all environment variables are in place, you can run the integration:
 
 You would typically run this as a scheduled job, to periodically perform this synchronization. However, it's also 
 possible to run this manually or ad-hoc.
-
-**Note on creating new groups:** This integration will create new groups based on your LDAP groups, with the
-corresponding users being added to that group. However, these groups will be created without access to any systems, 
-since your LDAP does not contain any information or configuration for Sigrid systems. Therefore, after the groups 
-have been created, you will need to configure which Sigrid systems are accessible to each group.
-
-**Note on creating users:** This integration is intended for Single Sign-On. It is therefore not possible to create
-non-SSO users using this integration.
 
 ## License
 

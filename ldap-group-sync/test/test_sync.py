@@ -16,7 +16,7 @@ import ldap
 
 from sigridldap.ldap_connection import LdapConfig, LdapConnection
 from sigridldap.sigrid_user_management import SigridUserManagement
-from sigridldap.sync import syncUserGroups
+from sigridldap.sync import syncUserGroups, syncGroupMemberships
 
 
 OPEN_SOURCE_LDAP_CONFIG = LdapConfig(
@@ -25,7 +25,8 @@ OPEN_SOURCE_LDAP_CONFIG = LdapConfig(
     bindPassword="password",
     userDN="dc=example,dc=com",
     userQuery="objectclass=inetOrgPerson",
-    userNameAttr="cn",
+    userFirstNameAttr="cn",
+    userLastNameAttr="cn",
     userEmailAttr="mail",
     groupDN="dc=example,dc=com",
     groupQuery="objectclass=groupOfUniqueNames",
@@ -38,18 +39,9 @@ OPEN_SOURCE_LDAP_CONFIG = LdapConfig(
 ldapConnection = LdapConnection(OPEN_SOURCE_LDAP_CONFIG)
 
 
-def testConnectLDAP():
-    connection = ldapConnection.connection
-    users = connection.search_s(OPEN_SOURCE_LDAP_CONFIG.bindDN, ldap.SCOPE_SUBTREE, "objectclass=*")
-
-    assert len(users) == 1
-    assert users[0][1]["cn"][0].decode("utf8") == "read-only-admin"
-    assert users[0][1]["sn"][0].decode("utf8") == "Read Only Admin"
-
-
 def testCreateMissingGroups():
     sigrid = MockSigridUserManagement()
-    syncUserGroups(sigrid, ldapConnection, memberships=False)
+    syncUserGroups(sigrid, ldapConnection)
 
     assert sigrid.actions == [
         "list groups",
@@ -66,7 +58,7 @@ def testDoNotCreateGroupsAlreadyThere():
     sigrid.existingGroups.append({"id": "2", "name": "Scientists"})
     sigrid.existingGroups.append({"id": "3", "name": "Chemists"})
 
-    syncUserGroups(sigrid, ldapConnection, memberships=False)
+    syncUserGroups(sigrid, ldapConnection)
 
     assert sigrid.actions == [
         "list groups",
@@ -80,7 +72,7 @@ def testDeleteObsoleteGroups():
     sigrid.existingGroups.append({"id": "2", "name": "Scientists"})
     sigrid.existingGroups.append({"id": "3", "name": "Belgians"})
 
-    syncUserGroups(sigrid, ldapConnection, memberships=False)
+    syncUserGroups(sigrid, ldapConnection)
 
     assert sigrid.actions == [
         "list groups",
@@ -90,91 +82,34 @@ def testDeleteObsoleteGroups():
     ]
 
 
-def testCreateNewUsers():
+def testUpdateGroupMemberships():
     sigrid = MockSigridUserManagement()
-    sigrid.existingGroups.append({"id": "1", "name": "Mathematicians"})
-    sigrid.existingGroups.append({"id": "2", "name": "Scientists"})
-    sigrid.existingGroups.append({"id": "3", "name": "Chemists"})
+    sigrid.existingGroups.append({"id": "1", "name": "Italians"})
+    sigrid.existingUsers.append({"id": "2", "email": "galileo@ldap.forumsys.com"})
+    sigrid.existingUsers.append({"id": "3", "email": "tesla@ldap.forumsys.com"})
+    sigrid.existingUsers.append({"id": "4", "email": "newton@ldap.forumsys.com"})
 
-    syncUserGroups(sigrid, ldapConnection)
+    syncGroupMemberships(sigrid, ldapConnection)
 
     assert sigrid.actions == [
         "list groups",
-        "create group Italians",
-        "create user newton@ldap.forumsys.com",
-        "create user einstein@ldap.forumsys.com",
+        "update group 1 to ['3']"
+    ]
+
+
+def testAutoCreateMissingSigridUsers():
+    sigrid = MockSigridUserManagement()
+    sigrid.existingGroups.append({"id": "1", "name": "Italians"})
+    sigrid.existingUsers.append({"id": "2", "email": "galileo@ldap.forumsys.com"})
+    sigrid.existingUsers.append({"id": "4", "email": "newton@ldap.forumsys.com"})
+
+    syncGroupMemberships(sigrid, ldapConnection)
+
+    assert sigrid.actions == [
+        "list groups",
         "create user tesla@ldap.forumsys.com",
-        "create user galileo@ldap.forumsys.com",
-        "create user euler@ldap.forumsys.com",
-        "create user gauss@ldap.forumsys.com",
-        "create user riemann@ldap.forumsys.com",
-        "create user euclid@ldap.forumsys.com",
-        "create user curie@ldap.forumsys.com",
-        "create user nobel@ldap.forumsys.com",
-        "create user boyle@ldap.forumsys.com",
-        "create user pasteur@ldap.forumsys.com",
-        "create user nogroup@ldap.forumsys.com"
+        "update group 1 to ['3']"
     ]
-
-
-def testRetainExistingUsers():
-    sigrid = MockSigridUserManagement()
-    sigrid.existingGroups.append({"id": "1", "name": "Mathematicians"})
-    sigrid.existingGroups.append({"id": "2", "name": "Scientists"})
-    sigrid.existingGroups.append({"id": "3", "name": "Chemists"})
-    sigrid.existingUsers.append({"id": "1", "email": "tesla@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "2", "email": "galileo@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "3", "email": "euler@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "4", "email": "gauss@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "5", "email": "riemann@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "6", "email": "euclid@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "7", "email": "curie@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "8", "email": "nobel@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "9", "email": "boyle@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "10", "email": "pasteur@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "11", "email": "nogroup@ldap.forumsys.com"})
-
-    syncUserGroups(sigrid, ldapConnection)
-
-    assert sigrid.actions == [
-        "list groups",
-        "create group Italians",
-        "create user newton@ldap.forumsys.com",
-        "create user einstein@ldap.forumsys.com"
-    ]
-
-
-def testAddMissingUsersToGroup():
-    sigrid = MockSigridUserManagement()
-    sigrid.existingGroups.append({"id": "1", "name": "Mathematicians"})
-    sigrid.existingGroups.append({"id": "2", "name": "Scientists"})
-    sigrid.existingGroups.append({"id": "3", "name": "Chemists"})
-    sigrid.existingUsers.append({"id": "1", "email": "tesla@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "2", "email": "galileo@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "3", "email": "euler@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "4", "email": "gauss@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "5", "email": "riemann@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "6", "email": "euclid@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "7", "email": "curie@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "8", "email": "nobel@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "9", "email": "boyle@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "10", "email": "pasteur@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "11", "email": "nogroup@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "12", "email": "newton@ldap.forumsys.com"})
-    sigrid.existingUsers.append({"id": "13", "email": "einstein@ldap.forumsys.com"})
-
-    syncUserGroups(sigrid, ldapConnection)
-
-    assert sigrid.actions == [
-        "list groups",
-        "create group Italians",
-        "create user newton@ldap.forumsys.com",
-        "create user einstein@ldap.forumsys.com"
-    ]
-
-
-def testRemoveUsersFromGroup():
-    pass #TODO
 
 
 class MockSigridUserManagement(SigridUserManagement):

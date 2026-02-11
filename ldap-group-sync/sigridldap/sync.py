@@ -18,7 +18,7 @@ from .sigrid_user_management import SigridUserManagement
 from .ldap_connection import LdapConnection, LdapGroup, LdapUser
 
 
-def syncUserGroups(sigrid: SigridUserManagement, ldapConnection: LdapConnection, memberships=True) -> None:
+def syncUserGroups(sigrid: SigridUserManagement, ldapConnection: LdapConnection) -> None:
     ldapGroups = ldapConnection.listGroups()
     sigridGroups = {group["name"]: group for group in sigrid.listUserGroups()}
 
@@ -30,18 +30,26 @@ def syncUserGroups(sigrid: SigridUserManagement, ldapConnection: LdapConnection,
         print(f"Removing Sigrid user group '{group}'")
         sigrid.deleteUserGroup(group)
 
-    if memberships:
-        ldapUsers = ldapConnection.listUsers()
-        sigridUsers = {user["email"]: user for user in sigrid.listUsers()}
 
-        for ldapUser in findMissingSigridUsers(ldapUsers, sigridUsers):
-            print(f"Creating Sigrid user '{ldapUser.email}'")
-            sigridUsers[ldapUser.email] = sigrid.createUser(ldapUser.email, ldapUser.firstName, ldapUser.lastName)
+def syncGroupMemberships(sigrid: SigridUserManagement, ldapConnection: LdapConnection) -> None:
+    sigridGroups = {group["name"]: group for group in sigrid.listUserGroups()}
+    connectedLdapGroups = [group for group in ldapConnection.listGroups() if group.name in sigridGroups]
 
-        for ldapGroup in ldapGroups:
-            userIds = list(matchGroupUserIds(ldapGroup, ldapUsers, sigridUsers))
-            print(f"Updating group memberships for group '{ldapGroup.name}' to {userIds}")
-            sigrid.updateGroupMembers(sigridGroups[ldapGroup.name]["id"], userIds)
+    ldapUsers = ldapConnection.listUsers()
+    sigridUsers = {user["email"]: user for user in sigrid.listUsers()}
+
+    for ldapGroup in connectedLdapGroups:
+        print(f"Synchronizing group memberships for '{ldapGroup.name}'")
+        ldapGroupUsers = list(findLdapUsers(ldapGroup, ldapUsers))
+        sigridGroupUserIds = []
+
+        for ldapUser in ldapGroupUsers:
+            if ldapUser.email not in sigridUsers:
+                print(f"Creating missing Sigrid SSO user '{ldapUser.email}'")
+                sigridUsers[ldapUser.email] = sigrid.createUser(ldapUser.email, ldapUser.firstName, ldapUser.lastName)
+            sigridGroupUserIds.append(sigridUsers[ldapUser.email]["id"])
+
+        sigrid.updateGroupMembers(sigridGroups[ldapGroup.name]["id"], sigridGroupUserIds)
 
 
 def findMissingGroups(ldapGroups: list[LdapGroup], sigridGroups: dict) -> list[LdapGroup]:
@@ -53,18 +61,11 @@ def findOrphanGroups(ldapGroups: list[LdapGroup], sigridGroups: dict) -> list[st
     return [groupName for groupName in sigridGroups if groupName not in ldapGroupNames]
 
 
-def findMissingSigridUsers(ldapUsers: list[LdapUser], sigridUsers: dict) -> list[LdapUser]:
-    return [user for user in ldapUsers if not user.email in sigridUsers]
+def findLdapUsers(group: LdapGroup, users: list[LdapUser]) -> Iterator[LdapUser]:
+    uids = {user.uid: user for user in users}
 
-
-def matchGroupUserIds(group: LdapGroup, ldapUsers: list[LdapUser], sigridUsers: dict) -> Iterator[str]:
     for uid in group.userIds:
-        ldapUser = next((user for user in ldapUsers if user.uid == uid), None)
-        if ldapUser is None:
+        if uid in uids:
+            yield uids[uid]
+        else:
             print(f"Warning: user '{uid}' is a member of group '{group.name}', but found no matching LDAP user")
-            continue
-        sigridUser = sigridUsers[ldapUser.email]
-        if sigridUser is None:
-            print(f"Warning: user '{uid}' is a member of group '{group.name}', but found no matching Sigrid user")
-            continue
-        yield sigridUser["id"]

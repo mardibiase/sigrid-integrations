@@ -23,7 +23,8 @@ class LdapConfig:
     bindPassword: str
     userDN: str
     userQuery: str
-    userNameAttr: str
+    userFirstNameAttr: str
+    userLastNameAttr: str
     userEmailAttr: str
     groupDN: str
     groupQuery: str
@@ -57,9 +58,8 @@ class LdapConnection:
     def parseUserObject(self, object) -> LdapUser:
         uid = object[0]
         email = object[1][self.config.userEmailAttr][0].decode("utf8")
-        name = object[1][self.config.userNameAttr][0].decode("utf8")
-        firstName = name.split(" ")[0] if " " in name else name
-        lastName = name[len(firstName) + 1:] if " " in name else name
+        firstName = object[1][self.config.userFirstNameAttr][0].decode("utf8")
+        lastName = object[1][self.config.userLastNameAttr][0].decode("utf8")
         return LdapUser(uid, email, firstName, lastName)
 
     def listGroups(self) -> list[LdapGroup]:
