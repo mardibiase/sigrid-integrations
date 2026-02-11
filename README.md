@@ -24,6 +24,7 @@ We currently have the following integrations:
 
 * [Get scope file](get-scope-file/) uses the Sigrid API to retrieve the latest [scope configuration file](https://docs.sigrid-says.com/reference/analysis-scope-configuration.html) that was used by Sigrid.
 * [Issue tracker export](issue-tracker-export/) exports anonymized issue tracker history into a format that can be analyzed by SIG.
+* [LDAP group synchronization](ldap-group-sync/) synchronizes group memberships from LDAP to Sigrid user groups.
 * [Objectives report](objectives-report/) generates charts based on Sigrid objectives, suitable to include in internal reporting. These charts go beyond what is available in the Sigrid user interface, and have a focus on reporting progress over longer periods of time.
 * [Polarion integration](polarion-integration/) synchronizes data between Sigrid and [Siemens Polarion](https://polarion.plm.automation.siemens.com).
 * [Report Generator](report-generator/) is a tool/framework designed to generate any kind of report.
