@@ -29,7 +29,7 @@ class SigridUserManagement:
             "Authorization": f"Bearer {self.token}"
         }
 
-        response = requests.request(method, url, json=body, headers=headers)
+        response = requests.request(method, url, json=body, headers=headers, cert=os.environ.get("SIGRID_CA_CERT"))
         if response.status_code >= 400:
             print(f"Sigrid request to {path} failed with HTTP status {response.status_code}")
             sys.exit(1)
