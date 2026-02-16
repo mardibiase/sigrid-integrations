@@ -11,7 +11,8 @@ COPY report-generator/ /sources/report-generator
 RUN apk add --no-cache \
         build-base \
         git \
-        openldap openldap-dev python3-dev \
+        openldap-dev \
+        python3-dev \
     && adduser -S sigrid \
     && pip install --no-cache-dir --upgrade pip setuptools wheel lxml==6.0.2 \
     && pip install --no-cache-dir /sources/report-generator \
