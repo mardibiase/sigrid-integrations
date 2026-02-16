@@ -36,6 +36,7 @@ Configuration is done using environment variables:
 | `SIGRID_LDAP_GROUP_DN`             | dc=example,dc=com                    | Location of groups to sync.                                 |
 | `SIGRID_LDAP_GROUP_QUERY`          | objectclass=groupOfUniqueNames       | Query on group DN to get the list of group objects.         |
 | `SIGRID_LDAP_GROUP_NAME_ATTR`      | cn                                   | Name of the LDAP attribute used for group names.            |
+| `SIGRID_CA_CERT`                   | mycert.pem                           | (Optional) Path to `.pem` file for connecting to Sigrid.    |
 
 
 Once all environment variables are in place, you can run the integration:
