@@ -23,8 +23,9 @@ import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
 from datetime import datetime
+from typing import Iterator
 
-from issue_data import Epic, Issue, IssueTrackerData, PullRequest
+from issue_data_model import IssueTrackerData, PullRequest, WorkItem, WorkItemType
 from issue_utils import parseDate, serialize, filterIssueData
 
 
@@ -38,7 +39,7 @@ def sendRequest(url):
         print(f"Warning: Cannot access {url}, HTTP status {e.code}")
 
 
-def sendMultipartRequest(url):
+def sendMultipartRequest(url: str) -> Iterator:
     for page in itertools.count(start=1):
         request = urllib.request.Request(f"{url}&page={page}&per_page=100")
         request.add_header("PRIVATE-TOKEN", os.environ["GITLAB_API_TOKEN"])
@@ -48,7 +49,7 @@ def sendMultipartRequest(url):
                 break
 
 
-def fetchIssues(baseURL, groups, projects, start):
+def fetchIssues(baseURL: str, groups: list[str], projects: list[str], start: str) -> Iterator[WorkItem]:
     groupURLs = [f"{baseURL}/api/v4/groups/{urllib.parse.quote_plus(group)}/issues" for group in groups]
     projectURLs = [f"{baseURL}/api/v4/projects/{urllib.parse.quote_plus(project)}/issues" for project in projects]
 
@@ -58,9 +59,13 @@ def fetchIssues(baseURL, groups, projects, start):
                 yield parseIssue(issue)
 
 
-def parseIssue(issue):
-    return Issue(
+def parseIssue(issue: dict) -> WorkItem:
+    epicId = f"{issue['epic']['group_id']}::{issue['epic']['id']}::{issue['epic']['iid']}" if issue["epic"] else None
+
+    return WorkItem(
         id=issue["id"],
+        type=WorkItemType.ISSUE,
+        parentId=epicId,
         url=issue["web_url"],
         project=issue["references"]["full"].split("#")[0],
         title=issue["title"],
@@ -69,27 +74,34 @@ def parseIssue(issue):
         closed=parseDate(issue["closed_at"]),
         author=issue["author"]["name"],
         assignees=[assignee["name"] for assignee in issue["assignees"]],
-        epicId=f"{issue['epic']['group_id']}::{issue['epic']['id']}::{issue['epic']['iid']}" if issue["epic"] else None,
         labels=issue["labels"]
     )
 
             
-def fetchEpics(baseURL, issues):
-    epicIds = set(issue.epicId for issue in issues if issue.epicId)
+def fetchEpics(baseURL: str, issues: list[WorkItem]) -> Iterator[WorkItem]:
+    epicIds = set(issue.parentId for issue in issues if issue.parentId)
+
     for epicId in epicIds:
         groupId, id, iid = epicId.split("::")
+
         for epic in sendRequest(f"{baseURL}/api/v4/groups/{groupId}/epics/{iid}"):
-            yield Epic(
+            yield WorkItem(
                 id=epicId,
+                type=WorkItemType.EPIC,
+                parentId=None,
                 url=epic["web_url"],
+                project=None,
                 title=epic["title"],
+                descriptionLength=len(epic["description"] or ""),
                 created=parseDate(epic["created_at"]),
                 closed=parseDate(epic["closed_at"]),
+                author=None,
+                assignees=[],
                 labels=epic["labels"]
             )
 
 
-def fetchPullRequests(baseURL, groups, projects, start):
+def fetchPullRequests(baseURL: str, groups: list[str], projects: list[str], start: str) -> Iterator[PullRequest]:
     groupURLs = [f"{baseURL}/api/v4/groups/{urllib.parse.quote_plus(group)}/merge_requests" for group in groups]
     projectURLs = [f"{baseURL}/api/v4/projects/{urllib.parse.quote_plus(project)}/merge_requests" for project in projects]
 
@@ -107,11 +119,11 @@ def fetchPullRequests(baseURL, groups, projects, start):
             )
 
 
-def exportGitLabData(baseURL, groups, projects, start):
+def exportGitLabData(baseURL: str, groups: list[str], projects: list[str], start: str) -> IssueTrackerData:
     issues = list(fetchIssues(baseURL, groups, projects, start))
     epics = list(fetchEpics(baseURL, issues))
     pullRequests = list(fetchPullRequests(baseURL, groups, projects, start))
-    return IssueTrackerData("GitLab", datetime.now(), issues, epics, pullRequests)
+    return IssueTrackerData("GitLab", datetime.now(), epics + issues, pullRequests)
 
 
 if __name__ == "__main__":

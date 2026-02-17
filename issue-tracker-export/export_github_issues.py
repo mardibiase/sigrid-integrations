@@ -23,12 +23,13 @@ import urllib.parse
 import urllib.request
 from argparse import ArgumentParser
 from datetime import datetime
+from typing import Iterator
 
-from issue_data import Epic, Issue, IssueTrackerData, PullRequest
+from issue_data_model import IssueTrackerData, PullRequest, WorkItem, WorkItemType
 from issue_utils import parseDate, serialize
 
 
-def fetchAll(apiBaseURL, org, repo, path):
+def fetchAll(apiBaseURL: str, org: str, repo: str, path: str) -> Iterator:
     url = f"{apiBaseURL}/repos/{org}/{repo}{path}&per_page=100&page=1"
     while url is not None:
         request = urllib.request.Request(url)
@@ -40,13 +41,15 @@ def fetchAll(apiBaseURL, org, repo, path):
             url = link.group(1) if link else None
 
 
-def fetchIssues(apiBaseURL, org, repo):
+def fetchIssues(apiBaseURL: str, org: str, repo: str) -> list[WorkItem]:
     return [parseIssue(org, repo, issue) for issue in fetchAll(apiBaseURL, org, repo, "/issues?state=all")]
 
 
-def parseIssue(org, repo, issue):
-    return Issue(
+def parseIssue(org: str, repo: str, issue: dict) -> WorkItem:
+    return WorkItem(
         id=issue["id"],
+        type=WorkItemType.ISSUE,
+        parentId=issue["milestone"]["id"] if issue["milestone"] else None,
         url=issue["html_url"],
         project=f"{org}/{repo}",
         title=issue["title"],
@@ -55,31 +58,36 @@ def parseIssue(org, repo, issue):
         closed=parseDate(issue["closed_at"]),
         author=issue["user"]["login"],
         assignees=[assignee["login"] for assignee in issue["assignees"]],
-        epicId=issue["milestone"]["id"] if issue["milestone"] else None,
         labels=[label["name"] for label in issue["labels"]]
     )
 
 
-def fetchMilestones(apiBaseURL, org, repo):
+def fetchMilestones(apiBaseURL: str, org: str, repo: str) -> list[WorkItem]:
     return [parseMilestone(milestone) for milestone in fetchAll(apiBaseURL, org, repo, "/milestones?state=all")]
 
 
-def parseMilestone(milestone):
-    return Epic(
+def parseMilestone(milestone: dict) -> WorkItem:
+    return WorkItem(
         id=milestone["id"],
+        type=WorkItemType.EPIC,
+        parentId=None,
         url=milestone["html_url"],
+        project=None,
         title=milestone["title"],
+        descriptionLength=0,
         created=parseDate(milestone["created_at"]),
         closed=parseDate(milestone["closed_at"]),
+        author=None,
+        assignees=[],
         labels=[]
     )
 
 
-def fetchPullRequests(apiBaseURL, org, repo):
+def fetchPullRequests(apiBaseURL: str, org: str, repo: str) -> list[PullRequest]:
     return [parsePullRequest(org, repo, pr) for pr in fetchAll(apiBaseURL, org, repo, "/pulls?state=all")]
 
 
-def parsePullRequest(org, repo, pr):
+def parsePullRequest(org: str, repo: str, pr: dict) -> PullRequest:
     return PullRequest(
         id=pr["id"],
         url=pr["url"],
@@ -92,7 +100,7 @@ def parsePullRequest(org, repo, pr):
     )
 
 
-def combine(repoData):
+def combine(repoData: list[list]) -> list:
     return list(itertools.chain(*repoData))
 
 
@@ -114,7 +122,7 @@ if __name__ == "__main__":
     repoMilestones = [list(fetchMilestones(args.github_api_url, args.org, repo)) for repo in repos]
     repoPRs = [list(fetchPullRequests(args.github_api_url, args.org, repo)) for repo in repos]
 
-    data = IssueTrackerData("GitHub", datetime.now(), combine(repoIssues), combine(repoMilestones), combine(repoPRs))
+    data = IssueTrackerData("GitHub", datetime.now(), combine(repoIssues) + combine(repoMilestones), combine(repoPRs))
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
     print(f"Exported {len(data.issues)} issues, {len(data.epics)} epics, {len(data.pullRequests)} PRs to {outputFile}")
