@@ -125,4 +125,4 @@ if __name__ == "__main__":
     data = IssueTrackerData("GitHub", datetime.now(), combine(repoIssues) + combine(repoMilestones), combine(repoPRs))
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
-    print(f"Exported {len(data.issues)} issues, {len(data.epics)} epics, {len(data.pullRequests)} PRs to {outputFile}")
+    print(f"Exported {len(data.workItems)} work items to {outputFile}")

@@ -95,4 +95,4 @@ if __name__ == "__main__":
 
     outputFile = os.path.expanduser(args.out)
     serialize(data, outputFile, args.anonymize)
-    print(f"Exported {len(data.issues)} issues and {len(data.epics)} epics to {outputFile}")
+    print(f"Exported {len(data.workItems)} work items to {outputFile}")
