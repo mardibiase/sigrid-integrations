@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ldap
+import os
 from dataclasses import dataclass
 
 
@@ -49,6 +50,11 @@ class LdapConnection:
     def __init__(self, config: LdapConfig):
         self.config = config
         self.connection = ldap.initialize(config.url)
+        if os.environ.get("LDAP_CA_CERT"):
+            self.connection.set_option(ldap.OPT_X_TLS_CACERTFILE, os.environ["LDAP_CA_CERT"])
+            self.connection.set_option(ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND)
+            self.connection.set_option(ldap.OPT_X_TLS_DEMAND, True)
+            self.connection.conn.start_tls_s()
         self.connection.simple_bind_s(config.bindDN, config.bindPassword)
 
     def listUsers(self) -> list[LdapUser]:
