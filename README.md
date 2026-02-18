@@ -22,6 +22,7 @@ This repo contains useful code we've created to leverage the power of [Sigrid's 
 
 We currently have the following integrations:
 
+* [Create JIRA issues](create-issues/azure-devops-jira) uses the Sigrid API to create [JIRA](https://www.atlassian.com/software/jira) issues from a Azure DevOps pipeline. 
 * [Get scope file](get-scope-file/) uses the Sigrid API to retrieve the latest [scope configuration file](https://docs.sigrid-says.com/reference/analysis-scope-configuration.html) that was used by Sigrid.
 * [Issue tracker export](issue-tracker-export/) exports anonymized issue tracker history into a format that can be analyzed by SIG.
 * [Objectives report](objectives-report/) generates charts based on Sigrid objectives, suitable to include in internal reporting. These charts go beyond what is available in the Sigrid user interface, and have a focus on reporting progress over longer periods of time.
