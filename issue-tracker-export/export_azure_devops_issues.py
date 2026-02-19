@@ -182,7 +182,10 @@ def parsePullRequest(baseURL: str, org: str, project: str, pr: dict) -> PullRequ
 
 def exportAzureDevOpsData(baseURL: str, org: str, projects: list[str], start: str, epicType: str) -> IssueTrackerData:
     rawWorkItems = list(fetchWorkItems(baseURL, org, projects, start))
-    workItems = [parseWorkItem(baseURL, org, wi, epicType) for wi in rawWorkItems]
+    workItems = [
+        parsed for parsed in (parseWorkItem(baseURL, org, wi, epicType) for wi in rawWorkItems)
+        if parsed.type is not None
+    ]
     pullRequests = list(fetchPullRequests(baseURL, org, projects, start))
     return IssueTrackerData("Azure DevOps", datetime.now(), workItems, pullRequests)
 
