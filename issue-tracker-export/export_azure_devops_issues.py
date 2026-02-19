@@ -135,8 +135,10 @@ def mapWorkItemType(typeName: str, epicType: str) -> WorkItemType:
         return WorkItemType.EPIC
     elif typeName.lower() in ("feature", "story"):
         return WorkItemType.FEATURE
-    else:
+    elif typeName.lower() in ("pbi", "product backlog item"):
         return WorkItemType.ISSUE
+    else:
+        return None 
 
 
 def parseWorkItem(baseURL: str, org: str, workItem: dict, epicType: str) -> WorkItem:
