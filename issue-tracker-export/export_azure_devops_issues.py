@@ -46,30 +46,46 @@ def sendRequest(url: str, body: dict = None) -> dict:
         return None
 
 
-def fetchWorkItems(baseURL: str, org: str, projects: list[str], start: str) -> Iterator[dict]:
-    for project in projects:
-        url = f"{baseURL}/{urllib.parse.quote(org)}/{urllib.parse.quote(project)}/_apis/wit/wiql?api-version=7.1"
-        wiql = (
-            f"SELECT [System.Id] FROM WorkItems "
-            f"WHERE [System.TeamProject] = '{project}' "
-            f"AND [System.CreatedDate] >= '{start}' "
-            f"ORDER BY [System.CreatedDate] ASC"
-        )
-        result = sendRequest(url, {"query": wiql})
-        ids = [item["id"] for item in result.get("workItems", [])] if result else []
+def fetchWorkItemIds(baseURL: str, org: str, project: str, wiql: str, pageSize: int) -> list[int]:
+    url = f"{baseURL}/{urllib.parse.quote(org)}/{urllib.parse.quote(project)}/_apis/wit/wiql?$top={pageSize}&api-version=7.1"
+    result = sendRequest(url, {"query": wiql})
+    return [item["id"] for item in (result or {}).get("workItems", [])]
 
-        for i in range(0, len(ids), 200):
-            chunk = ids[i:i + 200]
-            idList = ",".join(str(id) for id in chunk)
-            batchURL = (
-                f"{baseURL}/{urllib.parse.quote(org)}/{urllib.parse.quote(project)}"
-                f"/_apis/wit/workitems?ids={idList}"
-                f"&$expand=all&errorPolicy=omit&api-version=7.1"
+
+def fetchWorkItemDetails(baseURL: str, org: str, project: str, ids: list[int]) -> Iterator[dict]:
+    for i in range(0, len(ids), 200):
+        chunk = ids[i:i + 200]
+        idList = ",".join(str(id) for id in chunk)
+        batchURL = (
+            f"{baseURL}/{urllib.parse.quote(org)}/{urllib.parse.quote(project)}"
+            f"/_apis/wit/workitems?ids={idList}"
+            f"&$expand=all&errorPolicy=omit&api-version=7.1"
+        )
+        result = sendRequest(batchURL)
+        for workItem in (result or {}).get("value", []):
+            if workItem is not None:
+                yield workItem
+
+
+def fetchWorkItems(baseURL: str, org: str, projects: list[str], start: str) -> Iterator[dict]:
+    pageSize = 200
+    for project in projects:
+        lastId = 0
+        while True:
+            wiql = (
+                f"SELECT [System.Id] FROM WorkItems "
+                f"WHERE [System.TeamProject] = '{project}' "
+                f"AND [System.CreatedDate] >= '{start}' "
+                f"AND [System.Id] > {lastId} "
+                f"ORDER BY [System.Id] ASC"
             )
-            result = sendRequest(batchURL)
-            for workItem in (result or {}).get("value", []):
-                if workItem is not None:
-                    yield workItem
+            ids = fetchWorkItemIds(baseURL, org, project, wiql, pageSize)
+            if not ids:
+                break
+            yield from fetchWorkItemDetails(baseURL, org, project, ids)
+            if len(ids) < pageSize:
+                break
+            lastId = ids[-1]
 
 
 def fetchPullRequests(baseURL: str, org: str, projects: list[str], start: str) -> Iterator[PullRequest]:
@@ -92,7 +108,7 @@ def fetchPullRequests(baseURL: str, org: str, projects: list[str], start: str) -
             skip += 100
 
 
-def getParentId(workItem: dict) -> int:
+def getParentId(workItem: dict) -> int | None:
     for relation in (workItem.get("relations") or []):
         if relation.get("rel") == "System.LinkTypes.Hierarchy-Reverse":
             match = re.search(r"/workItems/(\d+)$", relation.get("url", ""))
@@ -101,7 +117,7 @@ def getParentId(workItem: dict) -> int:
     return None
 
 
-def getDisplayName(field) -> str:
+def getDisplayName(field) -> str | None:
     if field is None:
         return None
     if isinstance(field, dict):
