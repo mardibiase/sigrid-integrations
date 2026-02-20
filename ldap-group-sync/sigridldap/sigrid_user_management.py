@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
-import requests
+import ssl
 import sys
+import urllib.error
+import urllib.request
 
 
 class SigridUserManagement:
@@ -24,30 +27,34 @@ class SigridUserManagement:
         self.token = token
 
     def callEndPoint(self, method: str, path: str, body=None):
-        url = f"{self.sigridURL}{path}"
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self.token}"
-        }
+        jsonBody = json.dumps(body).encode("utf8") if body is not None else None
+        sslContext = ssl.create_default_context(cafile=os.getenv("SIGRID_CA_CERT")) if os.environ.get("SIGRID_CA_CERT") else None
 
-        response = requests.request(method, url, json=body, headers=headers, cert=os.environ.get("SIGRID_CA_CERT"))
-        if response.status_code >= 400:
-            print(f"Sigrid request to {path} failed with HTTP status {response.status_code}")
+        request = urllib.request.Request(f"{self.sigridURL}{path}", jsonBody, method=method)
+        request.add_header("Accept", "application/json")
+        request.add_header("Content-Type", "application/json")
+        request.add_header("Authorization", f"Bearer {self.token}".encode("utf8"))
+
+        try:
+            with urllib.request.urlopen(request, context=sslContext) as response:
+                if response.code == 204:
+                    return {}
+                return json.load(response)
+        except urllib.error.HTTPError as e:
+            print(f"Sigrid request to {path} failed with HTTP status {e.code}")
             sys.exit(1)
-        return response
 
     def listUserGroups(self):
         response = self.callEndPoint("GET", f"/rest/auth/api/user-management/{self.customer}/groups")
-        return response.json()["groups"]
+        return response["groups"]
 
     def createUserGroup(self, name: str):
-        response = self.callEndPoint("POST", f"/rest/auth/api/user-management/{self.customer}/groups", {
+        return self.callEndPoint("POST", f"/rest/auth/api/user-management/{self.customer}/groups", {
             "name": name,
             "description": "Sigrid user group created automatically based on LDAP group synchronization.",
             "users": [],
             "systems": []
         })
-        return response.json()
 
     def deleteUserGroup(self, groupId: str):
         return self.callEndPoint("DELETE", f"/rest/auth/api/user-management/{self.customer}/groups/{groupId}")
@@ -59,10 +66,10 @@ class SigridUserManagement:
 
     def listUsers(self):
         response = self.callEndPoint("GET", f"/rest/auth/api/user-management/{self.customer}/users")
-        return response.json()["users"]
+        return response["users"]
 
     def createUser(self, email: str, firstName: str, lastName: str):
-        response = self.callEndPoint("POST", f"/rest/auth/api/user-management/{self.customer}/users", {
+        return self.callEndPoint("POST", f"/rest/auth/api/user-management/{self.customer}/users", {
             "userInfo": {
                 "firstName": firstName,
                 "lastName": lastName,
@@ -70,4 +77,3 @@ class SigridUserManagement:
             },
             "isSSO": True
         })
-        return response.json()
