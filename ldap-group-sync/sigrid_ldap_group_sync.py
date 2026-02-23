@@ -51,7 +51,8 @@ if __name__ == "__main__":
         userEmailAttr=getRequiredEnv("SIGRID_LDAP_USER_EMAIL_ATTR"),
         groupDN=getRequiredEnv("SIGRID_LDAP_GROUP_DN"),
         groupQuery=getRequiredEnv("SIGRID_LDAP_GROUP_QUERY"),
-        groupNameAttr=getRequiredEnv("SIGRID_LDAP_GROUP_NAME_ATTR")
+        groupNameAttr=getRequiredEnv("SIGRID_LDAP_GROUP_NAME_ATTR"),
+        groupMemberAttr=os.environ.get("SIGRID_LDAP_GROUP_MEMBER_ATTR", "uniqueMember")
     )
     ldapConnection = LdapConnection(ldapConfig)
 

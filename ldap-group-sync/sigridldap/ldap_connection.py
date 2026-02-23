@@ -30,6 +30,7 @@ class LdapConfig:
     groupDN: str
     groupQuery: str
     groupNameAttr: str
+    groupMemberAttr: str
 
 
 @dataclass
@@ -74,5 +75,5 @@ class LdapConnection:
 
     def parseGroupObject(self, object) -> LdapGroup:
         name = object[1][self.config.groupNameAttr][0].decode("utf8")
-        userIds = [member.decode("utf8") for member in object[1]["uniqueMember"]]
+        userIds = [member.decode("utf8") for member in object[1][self.config.groupMemberAttr]]
         return LdapGroup(name, userIds)

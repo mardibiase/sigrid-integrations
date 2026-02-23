@@ -20,24 +20,25 @@ is used for interaction between these scripts and Sigrid.
 
 Configuration is done using environment variables:
 
-| Name                               | Example                              | Description                                                 |
-|------------------------------------|--------------------------------------|-------------------------------------------------------------|
-| `SIGRID_UM_URL`                    | https://sigrid-says.com              | Sigrid base URL.                                            |
-| `SIGRID_UM_CUSTOMER`               | mycompany                            | Your Sigrid customer name.                                  |
-| `SIGRID_UM_TOKEN`                  | (token)                              | Sigrid API token with administrator privileges.             |
-| `SIGRID_LDAP_URL`                  | ldap://ldap.example.com:389          | LDAP URL.                                                   |
-| `SIGRID_LDAP_BIND_DN`              | cn=read-only-admin,dc=example,dc=com | LDAP DN used for authenticating this integration.           |
-| `SIGRID_LDAP_BIND_PASSWORD`        | (password)                           | LDAP password used for authenticating this integration.     |
-| `SIGRID_LDAP_USER_DN`              | dc=example,dc=com                    | Locations of users to sync.                                 |
-| `SIGRID_LDAP_USER_QUERY`           | objectclass=inetOrgPerson            | Query on user DN to get the list of user objects.           |
-| `SIGRID_LDAP_USER_FIRST_NAME_ATTR` | cn                                   | Name of the LDAP attribute used for users' first names.     |
-| `SIGRID_LDAP_USER_LAST_NAME_ATTR`  | cn                                   | Name of the LDAP attribute used for users' last names.      |
-| `SIGRID_LDAP_USER_EMAIL_ATTR`      | mail                                 | Name of the LDAP attribute used for users' email addresses. |
-| `SIGRID_LDAP_GROUP_DN`             | dc=example,dc=com                    | Location of groups to sync.                                 |
-| `SIGRID_LDAP_GROUP_QUERY`          | objectclass=groupOfUniqueNames       | Query on group DN to get the list of group objects.         |
-| `SIGRID_LDAP_GROUP_NAME_ATTR`      | cn                                   | Name of the LDAP attribute used for group names.            |
-| `SIGRID_CA_CERT`                   | mysigridcert.pem                     | (Optional) Path to `.pem` file for connecting to Sigrid.    |
-| `LDAP_CA_CERT`                     | myldapcert.pem                       | (Optional) Path to `.pem` file for connecting to LDAP.      |
+| Name                               | Example                              | Description                                                       |
+|------------------------------------|--------------------------------------|-------------------------------------------------------------------|
+| `SIGRID_UM_URL`                    | https://sigrid-says.com              | Sigrid base URL.                                                  |
+| `SIGRID_UM_CUSTOMER`               | mycompany                            | Your Sigrid customer name.                                        |
+| `SIGRID_UM_TOKEN`                  | (token)                              | Sigrid API token with administrator privileges.                   |
+| `SIGRID_LDAP_URL`                  | ldap://ldap.example.com:389          | LDAP URL.                                                         |
+| `SIGRID_LDAP_BIND_DN`              | cn=read-only-admin,dc=example,dc=com | LDAP DN used for authenticating this integration.                 |
+| `SIGRID_LDAP_BIND_PASSWORD`        | (password)                           | LDAP password used for authenticating this integration.           |
+| `SIGRID_LDAP_USER_DN`              | dc=example,dc=com                    | Locations of users to sync.                                       |
+| `SIGRID_LDAP_USER_QUERY`           | objectclass=inetOrgPerson            | Query on user DN to get the list of user objects.                 |
+| `SIGRID_LDAP_USER_FIRST_NAME_ATTR` | cn                                   | Name of the LDAP attribute used for users' first names.           |
+| `SIGRID_LDAP_USER_LAST_NAME_ATTR`  | cn                                   | Name of the LDAP attribute used for users' last names.            |
+| `SIGRID_LDAP_USER_EMAIL_ATTR`      | mail                                 | Name of the LDAP attribute used for users' email addresses.       |
+| `SIGRID_LDAP_GROUP_DN`             | dc=example,dc=com                    | Location of groups to sync.                                       |
+| `SIGRID_LDAP_GROUP_QUERY`          | objectclass=groupOfUniqueNames       | Query on group DN to get the list of group objects.               |
+| `SIGRID_LDAP_GROUP_NAME_ATTR`      | cn                                   | Name of the LDAP attribute used for group names.                  |
+| `SIGRID_LDAP_GROUP_MEMBER_ATTR`    | uniqueMember                         | (Optional) Name of the LDAP attribute used for group memberships. |
+| `SIGRID_CA_CERT`                   | mysigridcert.pem                     | (Optional) Path to `.pem` file for connecting to Sigrid.          |
+| `LDAP_CA_CERT`                     | myldapcert.pem                       | (Optional) Path to `.pem` file for connecting to LDAP.            |
 
 
 Once all environment variables are in place, you can run the integration:
