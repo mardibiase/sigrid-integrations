@@ -30,7 +30,8 @@ OPEN_SOURCE_LDAP_CONFIG = LdapConfig(
     userEmailAttr="mail",
     groupDN="dc=example,dc=com",
     groupQuery="objectclass=groupOfUniqueNames",
-    groupNameAttr="cn"
+    groupNameAttr="cn",
+    groupMemberAttr="uniqueMember"
 )
 
 
