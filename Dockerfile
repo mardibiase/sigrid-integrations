@@ -1,5 +1,6 @@
 FROM python:3.13-alpine
 
+COPY architecture-export/ /integrations/architecture-export
 COPY export-portfolio-dependencies/ /integrations/export-portfolio-dependencies
 COPY get-scope-file/ /integrations/get-scope-file
 COPY issue-tracker-export/ /integrations/issue-tracker-export
@@ -12,6 +13,7 @@ COPY report-generator/ /sources/report-generator
 RUN apk add --no-cache \
         build-base \
         git \
+        graphviz \
         openldap-dev \
         python3-dev \
     && adduser -S sigrid \
@@ -23,6 +25,6 @@ RUN apk add --no-cache \
     && pip install --no-cache-dir -r /integrations/export-portfolio-dependencies/requirements.txt \
     && pip install --no-cache-dir -r /integrations/ldap-group-sync/requirements.txt
 
-ENV PATH="/integrations/objectives-report:/integrations/get-scope-file:/integrations/export-portfolio-dependencies:/integrations/polarion-integration:/integrations/issue-tracker-export:/integrations/ldap-group-sync:/integrations/osh-findings:${PATH}"
+ENV PATH="/integrations/objectives-report:/integrations/get-scope-file:/integrations/export-portfolio-dependencies:/integrations/polarion-integration:/integrations/issue-tracker-export:/integrations/ldap-group-sync:/integrations/osh-findings:/integrations/architecture-export:${PATH}"
 USER sigrid
 WORKDIR /home/sigrid
