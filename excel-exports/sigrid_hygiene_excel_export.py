@@ -22,6 +22,9 @@ from collections import defaultdict
 from openpyxl import Workbook
 from openpyxl.styles import Font
 
+from datetime import datetime, timedelta
+
+
 
 from sigrid_api_client import SigridApiClient
 
@@ -35,7 +38,7 @@ def toExcel(activeSystems, metadata, objectives, users):
     populateMetadataCompletenessSheet(workbook.create_sheet("Metadata completeness"), activeSystems, metadata)
     # populateSnapshotFreshnessSheet(workbook.create_sheet("Snapshot freshness"), activeSystems, metadata)
     populateEolSystemsSheet(workbook.create_sheet("EOL systems"), metadata)
-    # populateLastSigridAccessSheet(workbook.create_sheet("Last Sigrid access"), users)
+    populateLastSigridAccessSheet(workbook.create_sheet("Last Sigrid access"), users)
     ## reuse sheet from the objectives excel export
     del workbook["Sheet"]
     return workbook
@@ -67,17 +70,6 @@ def populateMetadataCompletenessSheet(sheet, activeSystems, metadata):
                 cell.font = red_font
 
 
-# def populateSnapshotFreshnessSheet(sheet, activeSystems, metadata):
-#     objectivesByType = groupObjectivesByType(activeSystems, objectives)
-
-#    sheet.append(["Objective", "Number of systems where it is met", "Number of systems where it is not met"])
-#    for type in sorted(objectivesByType.keys()):
-#        displayName = formatObjectiveType(type)
-#        met = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "MET")
-#        unmet = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "NOT_MET")
-#        sheet.append([displayName, met, unmet])
-
-
 def populateEolSystemsSheet(sheet, metadata):
     sheet.append(["System name", "Division", "Team", "Lifecycle phase", "Deactivated"])
 
@@ -90,6 +82,15 @@ def populateEolSystemsSheet(sheet, metadata):
         team = ", ".join(str(item) for item in (["INCOMPLETE"] if not metadata[system]["teamNames"] else metadata[system]["teamNames"]))
         deactivated = "yes" if system not in activeSystems else ""
         sheet.append([systemName, division, team, "Eol", deactivated])
+
+
+def populateLastSigridAccessSheet(sheet, users):
+    sheet.append(["Last name", "First name", "Email", "Role", "Last login"])
+
+    usersOlderThanOneYear = [user for user in users if user["lastLoginAt"] is not None and
+                             datetime.now() - datetime.fromisoformat(user["lastLoginAt"]) > timedelta(days=365)]
+    for user in usersOlderThanOneYear:
+        sheet.append([user["lastName"], user["firstName"], user["email"], user["role"].title(), ">1 year"])
 
 
 if __name__ == "__main__":
@@ -107,8 +108,7 @@ if __name__ == "__main__":
     metadata = sigrid.fetchMetadata()
     activeSystems = [name for name, meta in metadata.items() if meta["active"] and not meta["isDevelopmentOnly"]]
     objectives = {eval["systemName"]: eval["objectives"] for eval in sigrid.fetchObjectivesEvaluation()}
-    #users = sigrid.fetchUsers()
-    users = None
+    users = sigrid.fetchUsers()
 
     workbook = toExcel(activeSystems, metadata, objectives, users)
     workbook.save(os.path.expanduser(args.out))

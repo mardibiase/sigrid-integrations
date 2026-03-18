@@ -43,3 +43,14 @@ class SigridApiClient:
 
     def fetchSecurityFindings(self, system):
         return self.callEndPoint(f"/security-findings/{self.customer}/{system}")
+
+    def fetchUsers(self):
+        request = urllib.request.Request(f"{self.sigridURL}/rest/auth/api/user-management/{self.customer}/users")
+        request.add_header("Accept", "application/json")
+        request.add_header("Authorization", f"Bearer {self.token}".encode("utf8"))
+
+        with urllib.request.urlopen(request) as response:
+            if response.status >= 400:
+                raise Exception(f"Sigrid API returns HTTP status {response.status}")
+            response = json.load(response)
+            return response["users"]
