@@ -17,6 +17,12 @@ Export an Excel sheet that contains a full overview of every objective for every
 
     ./objectives_excel_export.py --customer <mycustomername> --out my-file.xlsx
 
+## Portfolio Hygiene
+
+Export an Excel sheet that contains an overview of the Sigrid hygiene for the entire portfolio.
+
+    ./sigrid_hygiene_excel_export.py --customer <mycustomername> --out my-file.xlsx
+
 ## License
 
 Copyright Software Improvement Group
