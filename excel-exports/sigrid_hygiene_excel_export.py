@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+
+# Copyright Software Improvement Group
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import itertools
+import os
+import sys
+from argparse import ArgumentParser
+from collections import defaultdict
+from openpyxl import Workbook
+from openpyxl.styles import Font
+
+
+from sigrid_api_client import SigridApiClient
+
+
+def formatTarget(objective):
+    return f"{objective['level'].title()} target: {objective['target']}"
+
+
+def toExcel(activeSystems, metadata, objectives, users):
+    workbook = Workbook()
+    populateMetadataCompletenessSheet(workbook.create_sheet("Metadata completeness"), activeSystems, metadata)
+    # populateSnapshotFreshnessSheet(workbook.create_sheet("Snapshot freshness"), activeSystems, metadata)
+    # populateEolSystemsSheet(workbook.create_sheet("EOL systems"), metadata)
+    # populateLastSigridAccessSheet(workbook.create_sheet("Last Sigrid access"), users)
+    ## reuse sheet from the objectives excel export
+    del workbook["Sheet"]
+    return workbook
+
+
+def populateMetadataCompletenessSheet(sheet, activeSystems, metadata):
+    sheet.append(["System name", "Division", "Team", "Supplier", "In production since", "Business criticality", "Lifecycle phase",
+                  "Target industry", "Deployment type", "Application type", "Distribution strategy"])
+
+    for system in activeSystems:
+        systemName = metadata[system]["displayName"] or system
+        division = "INCOMPLETE" if not metadata[system]["divisionName"] else metadata[system]["divisionName"]
+        team = ", ".join(str(item) for item in (["INCOMPLETE"] if not metadata[system]["teamNames"] else metadata[system]["teamNames"]))
+        supplier = "INCOMPLETE" if not metadata[system]["supplierNames"] else ""
+        inProductionSince = "INCOMPLETE" if metadata[system]["inProductionSince"] is None else ""
+        businessCriticality = "INCOMPLETE" if not metadata[system]["businessCriticality"] else ""
+        lifecyclePhase = "INCOMPLETE" if not metadata[system]["lifecyclePhase"] else ""
+        targetIndustry = "INCOMPLETE" if not metadata[system]["targetIndustry"] else ""
+        deploymentType = "INCOMPLETE" if not metadata[system]["deploymentType"] else ""
+        applicationType = "INCOMPLETE" if not metadata[system]["applicationType"] else ""
+        distributionStrategy = "INCOMPLETE" if not metadata[system]["softwareDistributionStrategy"] else ""
+        sheet.append([systemName, division, team, supplier, inProductionSince, businessCriticality, lifecyclePhase,
+                      targetIndustry, deploymentType, applicationType, distributionStrategy])
+
+    red_font = Font(color="FF0000")
+    for row in sheet.iter_rows():
+        for cell in row:
+            if cell.value == "INCOMPLETE":
+                cell.font = red_font
+
+
+# def populateSnapshotFreshnessSheet(sheet, activeSystems, metadata):
+#     objectivesByType = groupObjectivesByType(activeSystems, objectives)
+
+#    sheet.append(["Objective", "Number of systems where it is met", "Number of systems where it is not met"])
+#    for type in sorted(objectivesByType.keys()):
+#        displayName = formatObjectiveType(type)
+#        met = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "MET")
+#        unmet = sum(1 for objective in objectivesByType[type] if objective["targetMetAtEnd"] == "NOT_MET")
+#        sheet.append([displayName, met, unmet])
+
+
+#def populateEolSystemsSheet(sheet, metadata):
+#    types = sorted(groupObjectivesByType(activeSystems, objectives).keys())
+#    columns = [[f"Associated {formatObjectiveType(type)} objective", f"{formatObjectiveType(type)} objective met?"] for type in types]
+
+#    sheet.append(["System name"] + list(itertools.chain(*columns)))
+#    for system in activeSystems:
+#        displayName = metadata[system]["displayName"] or system
+#        evaluations = [formatObjectiveEvaluation(objectives, system, type) for type in types]
+#        sheet.append([displayName] + list(itertools.chain(*evaluations)))
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser(description="Excel export containing the Sigrid hygiene status of the portfolio.")
+    parser.add_argument("--customer", type=str, required=True, help="Sigrid customer name.")
+    parser.add_argument("--out", type=str, required=True, help="Output file.")
+    parser.add_argument("--sigridurl", type=str, default="https://sigrid-says.com", help="Sigrid base URL.")
+    args = parser.parse_args()
+
+    if not os.environ.get("SIGRID_CI_TOKEN"):
+        print("Missing Sigrid API token in environment variable SIGRID_CI_TOKEN")
+        sys.exit(1)
+
+    sigrid = SigridApiClient(args.sigridurl, args.customer)
+    metadata = sigrid.fetchMetadata()
+    activeSystems = [name for name, meta in metadata.items() if meta["active"] and not meta["isDevelopmentOnly"]]
+    objectives = {eval["systemName"]: eval["objectives"] for eval in sigrid.fetchObjectivesEvaluation()}
+    #users = sigrid.fetchUsers()
+    users = None
+
+    workbook = toExcel(activeSystems, metadata, objectives, users)
+    workbook.save(os.path.expanduser(args.out))
