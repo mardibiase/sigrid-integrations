@@ -85,8 +85,7 @@ class SigridApiClient:
         try:
             req = urllib.request.Request(f'{self.sigrid_url}{path}')
             req.add_header('Authorization', 'Bearer ' + os.environ.get(SIGRID_CI_TOKEN_ENV_NAME))
-            context = ssl._create_unverified_context()
-            with urllib.request.urlopen(req, context=context) as response:
+            with urllib.request.urlopen(req) as response:
                 return json.loads(self.handle_response(response))
         except URLError as e:
             LOG.error('Unable to connect to Sigrid API: %s', str(e))
@@ -197,13 +196,11 @@ def get_legal_risks(components: List[Dict], objective: str) -> int:
             return LEGAL_FINDING_TYPE.exit_code
     return 0
 
-
 def include_for_license_risk(finding: Dict, objective: str) -> bool:
     # include licenses that exceed objective, and unknown license types (but not absent licenses)
     return (risk_exceeds_objective(finding, LEGAL_FINDING_TYPE.risk_name, objective)
      or ( get_property_value(finding, LEGAL_FINDING_TYPE.risk_name) == Risk.UNKNOWN.name
           and get_property_value(finding, "license")))
-
 
 def sort_and_color_table(table: List[List], objective: str) -> List[List]:
     table = sorted(table, key= lambda row: (Risk[row[0]].value, row[1]), reverse=True)
