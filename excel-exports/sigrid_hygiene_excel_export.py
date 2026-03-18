@@ -34,7 +34,7 @@ def toExcel(activeSystems, metadata, objectives, users):
     workbook = Workbook()
     populateMetadataCompletenessSheet(workbook.create_sheet("Metadata completeness"), activeSystems, metadata)
     # populateSnapshotFreshnessSheet(workbook.create_sheet("Snapshot freshness"), activeSystems, metadata)
-    # populateEolSystemsSheet(workbook.create_sheet("EOL systems"), metadata)
+    populateEolSystemsSheet(workbook.create_sheet("EOL systems"), metadata)
     # populateLastSigridAccessSheet(workbook.create_sheet("Last Sigrid access"), users)
     ## reuse sheet from the objectives excel export
     del workbook["Sheet"]
@@ -78,15 +78,18 @@ def populateMetadataCompletenessSheet(sheet, activeSystems, metadata):
 #        sheet.append([displayName, met, unmet])
 
 
-#def populateEolSystemsSheet(sheet, metadata):
-#    types = sorted(groupObjectivesByType(activeSystems, objectives).keys())
-#    columns = [[f"Associated {formatObjectiveType(type)} objective", f"{formatObjectiveType(type)} objective met?"] for type in types]
+def populateEolSystemsSheet(sheet, metadata):
+    sheet.append(["System name", "Division", "Team", "Lifecycle phase", "Deactivated"])
 
-#    sheet.append(["System name"] + list(itertools.chain(*columns)))
-#    for system in activeSystems:
-#        displayName = metadata[system]["displayName"] or system
-#        evaluations = [formatObjectiveEvaluation(objectives, system, type) for type in types]
-#        sheet.append([displayName] + list(itertools.chain(*evaluations)))
+    eolSystems = [name for name, meta in metadata.items() if meta["lifecyclePhase"] == "EOL"]
+    activeSystems = [name for name, meta in metadata.items() if meta["active"] and not meta["isDevelopmentOnly"]]
+
+    for system in eolSystems:
+        systemName = metadata[system]["displayName"] or system
+        division = "INCOMPLETE" if not metadata[system]["divisionName"] else metadata[system]["divisionName"]
+        team = ", ".join(str(item) for item in (["INCOMPLETE"] if not metadata[system]["teamNames"] else metadata[system]["teamNames"]))
+        deactivated = "yes" if system not in activeSystems else ""
+        sheet.append([systemName, division, team, "Eol", deactivated])
 
 
 if __name__ == "__main__":
