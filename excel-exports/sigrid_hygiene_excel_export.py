@@ -21,7 +21,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from openpyxl import Workbook
 from openpyxl.styles import Font
-
+from objectives_excel_export import populateSystemDetailsSheet
 from datetime import datetime, timedelta
 
 
@@ -39,7 +39,7 @@ def toExcel(activeSystems, metadata, objectives, users):
     # populateSnapshotFreshnessSheet(workbook.create_sheet("Snapshot freshness"), activeSystems, metadata)
     populateEolSystemsSheet(workbook.create_sheet("EOL systems"), metadata)
     populateLastSigridAccessSheet(workbook.create_sheet("Last Sigrid access"), users)
-    ## reuse sheet from the objectives excel export
+    populateSystemDetailsSheet(workbook.create_sheet("Objectives coverage"), activeSystems, metadata, objectives)
     del workbook["Sheet"]
     return workbook
 

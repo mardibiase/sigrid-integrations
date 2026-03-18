@@ -93,11 +93,13 @@ def populateSystemDetailsSheet(sheet, activeSystems, metadata, objectives):
     types = sorted(groupObjectivesByType(activeSystems, objectives).keys())
     columns = [[f"Associated {formatObjectiveType(type)} objective", f"{formatObjectiveType(type)} objective met?"] for type in types]
 
-    sheet.append(["System name"] + list(itertools.chain(*columns)))
+    sheet.append(["System name", "Division", "Team"] + list(itertools.chain(*columns)))
     for system in activeSystems:
         displayName = metadata[system]["displayName"] or system
+        division = "INCOMPLETE" if not metadata[system]["divisionName"] else metadata[system]["divisionName"]
+        team = ", ".join(str(item) for item in (["INCOMPLETE"] if not metadata[system]["teamNames"] else metadata[system]["teamNames"]))
         evaluations = [formatObjectiveEvaluation(objectives, system, type) for type in types]
-        sheet.append([displayName] + list(itertools.chain(*evaluations)))
+        sheet.append([displayName, division, team] + list(itertools.chain(*evaluations)))
 
 
 if __name__ == "__main__":
