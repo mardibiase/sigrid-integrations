@@ -44,6 +44,9 @@ class SigridApiClient:
     def fetchSecurityFindings(self, system):
         return self.callEndPoint(f"/security-findings/{self.customer}/{system}")
 
+    def fetchArchitectureQuality(self, system):
+        return self.callEndPoint(f"/architecture-quality/{self.customer}/{system}")
+
     def fetchUsers(self):
         request = urllib.request.Request(f"{self.sigridURL}/rest/auth/api/user-management/{self.customer}/users")
         request.add_header("Accept", "application/json")

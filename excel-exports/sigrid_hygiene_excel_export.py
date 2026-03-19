@@ -14,29 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import itertools
 import os
 import sys
 from argparse import ArgumentParser
-from collections import defaultdict
+from datetime import datetime, timedelta
 from openpyxl import Workbook
 from openpyxl.styles import Font
+
 from objectives_excel_export import populateSystemDetailsSheet
-from datetime import datetime, timedelta
-
-
-
 from sigrid_api_client import SigridApiClient
-
-
-def formatTarget(objective):
-    return f"{objective['level'].title()} target: {objective['target']}"
 
 
 def toExcel(activeSystems, metadata, objectives, users):
     workbook = Workbook()
     populateMetadataCompletenessSheet(workbook.create_sheet("Metadata completeness"), activeSystems, metadata)
-    # populateSnapshotFreshnessSheet(workbook.create_sheet("Snapshot freshness"), activeSystems, metadata)
+    populateSnapshotFreshnessSheet(workbook.create_sheet("Snapshot freshness"), activeSystems, metadata)
     populateEolSystemsSheet(workbook.create_sheet("EOL systems"), metadata)
     populateLastSigridAccessSheet(workbook.create_sheet("Last Sigrid access"), users)
     populateSystemDetailsSheet(workbook.create_sheet("Objectives coverage"), activeSystems, metadata, objectives)
@@ -68,6 +60,18 @@ def populateMetadataCompletenessSheet(sheet, activeSystems, metadata):
         for cell in row:
             if cell.value == "INCOMPLETE":
                 cell.font = red_font
+
+
+def populateSnapshotFreshnessSheet(sheet, activeSystems, metadata):
+    sheet.append(["System name", "Division", "Team", "Snapshot freshness"])
+
+    for system in activeSystems:
+        snapshotDate = sigrid.fetchArchitectureQuality(system)["snapshotDate"]
+        if datetime.now() - datetime.fromisoformat(snapshotDate) > timedelta(days=90):
+            systemName = metadata[system]["displayName"] or system
+            division = "INCOMPLETE" if not metadata[system]["divisionName"] else metadata[system]["divisionName"]
+            team = ", ".join(str(item) for item in (["INCOMPLETE"] if not metadata[system]["teamNames"] else metadata[system]["teamNames"]))
+            sheet.append([systemName, division, team, ">3 months"])
 
 
 def populateEolSystemsSheet(sheet, metadata):
