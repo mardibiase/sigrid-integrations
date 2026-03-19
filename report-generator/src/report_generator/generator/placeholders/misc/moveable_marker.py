@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import logging
 from abc import ABC
 from typing import Callable
 
@@ -20,11 +20,17 @@ from pptx.presentation import Presentation
 from report_generator.generator import report_utils
 from report_generator.generator.data_models import architecture_data, maintainability_data, modernization_data, \
     osh_data, security_data
-from report_generator.generator.formatters.formatters import maintainability_round
+from report_generator.generator.formatters.formatters import star_rating_round
 from report_generator.generator.placeholders import Placeholder
 
 _RATING_MARKER_MOVE_SIZE = 2200000
 _MANAGEMENT_SUMMARY_MARKER_RANGE = 4000000
+
+
+def set_marker_move_size(marker_move_size: int) -> None:
+    """Some templates may use a different width of the rating slider, therefore requiring a different marker move size."""
+    global _RATING_MARKER_MOVE_SIZE
+    _RATING_MARKER_MOVE_SIZE = marker_move_size
 
 
 def _distance_to_average(rating):
@@ -59,7 +65,7 @@ class MaintainabilityMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder
 
     @classmethod
     def value(cls, parameter=None):
-        return maintainability_round(maintainability_data.maintainability_rating)
+        return star_rating_round(maintainability_data.maintainability_rating)
 
 
 class ArchitectureMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder):
@@ -67,7 +73,7 @@ class ArchitectureMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder):
 
     @classmethod
     def value(cls, parameter=None):
-        return maintainability_round(architecture_data.ratings["architecture"])
+        return star_rating_round(architecture_data.ratings["architecture"])
 
 
 class OSHMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder):
@@ -75,7 +81,7 @@ class OSHMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder):
 
     @classmethod
     def value(cls, parameter=None) -> str:
-        return maintainability_round(osh_data.data.ratings["system"])
+        return star_rating_round(osh_data.system_rating)
 
 
 class SecurityMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder):
@@ -83,7 +89,7 @@ class SecurityMovableMarkerPlaceholder(_AbstractMoveableMarkerPlaceholder):
 
     @classmethod
     def value(cls, parameter=None) -> str:
-        return maintainability_round(security_data.security_rating)
+        return star_rating_round(security_data.security_rating)
 
 
 class _ManagementSummaryMarkerPlaceholder(Placeholder, ABC):
@@ -111,7 +117,7 @@ class ModernizationTechnicalDebtMarkerPlaceholder(_ManagementSummaryMarkerPlaceh
     @classmethod
     def value(cls, parameter=None) -> tuple[float, str]:
         technical_debt = sum(
-            candidate.technical_debt_in_py for candidate in modernization_data.modernization_candidates)
+            candidate.estimated_effort_py for candidate in modernization_data.modernization_candidates)
         return technical_debt / modernization_data.total_volume, f"{round(technical_debt)} PY"
 
 

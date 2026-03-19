@@ -15,16 +15,18 @@
 from unittest.mock import patch
 import pytest
 import click
+import inspect
 
 from report_generator.generator.data_models.portfolio import portfolio_arguments
 from report_generator.generator.data_models.portfolio.portfolio_arguments import (
     set_context,
-    get_portfolio_context,
     filter_data_on_portfolio_arguments,
     PlaceholderArgumentException,
     _include,
     _are_filters_set,
     _find_system_metadata,
+    FILTER_CONFIGURATION,
+    METADATA_FILTER_CHECKS,
 )
 
 
@@ -45,6 +47,16 @@ def mock_portfolio_metadata():
         {
             'systemName': 'system3',
             'teamNames': ['TeamA'],
+            'divisionName': 'DivisionX'
+        },
+        {
+            'systemName': 'system4',
+            'teamNames': ['TeamA'],
+            'divisionName': 'DivisionY'
+        },
+        {
+            'systemName': 'system5',
+            'teamNames': ['TeamB'],
             'divisionName': 'DivisionX'
         }
     ]
@@ -80,6 +92,14 @@ class TestPortfolioArguments:
         """Reset portfolio context after each test."""
         portfolio_arguments._team = None
         portfolio_arguments._division = None
+        portfolio_arguments._lifecycle = None
+        portfolio_arguments._deployment = None
+        portfolio_arguments._business_criticality = None
+        portfolio_arguments._distribution = None
+        portfolio_arguments._application_type = None
+        portfolio_arguments._target_industry = None
+        portfolio_arguments._technology_category = None
+        portfolio_arguments._main_technology = None
 
     # Context Management Tests
 
@@ -103,15 +123,6 @@ class TestPortfolioArguments:
 
         assert portfolio_arguments._team == ['TeamA', 'TeamB']
         assert portfolio_arguments._division == ['DivisionX']
-
-    def test_get_portfolio_context(self):
-        """Test that get_portfolio_context returns the current filter context."""
-        set_context(team=['TeamA'], division=['DivisionY'])
-
-        context = get_portfolio_context()
-
-        assert context['team'] == ['TeamA']
-        assert context['division'] == ['DivisionY']
 
     # Filter Checking Tests
 
@@ -167,17 +178,21 @@ class TestPortfolioArguments:
 
         assert result is False
 
-    def test_include_matches_either_team_or_division(self, mock_portfolio_metadata):
-        """Test that _include uses OR logic between team and division filters."""
-        set_context(team=['TeamC'], division=['DivisionX'])
+    def test_include_matches_team_and_division(self, mock_portfolio_metadata):
+        """Test that _include uses AND logic between team and division filters."""
+        set_context(team=['TeamA'], division=['DivisionX'])
 
-        result1 = _include('system1', mock_portfolio_metadata)  # Matches division only
-        result2 = _include('system2', mock_portfolio_metadata)  # Matches team only
-        result3 = _include('system3', mock_portfolio_metadata)  # Matches division only
+        result1 = _include('system1', mock_portfolio_metadata)  # Matches both team and division
+        result2 = _include('system2', mock_portfolio_metadata)  # Matches nothing
+        result3 = _include('system3', mock_portfolio_metadata)  # Matches both team and division
+        result4 = _include('system4', mock_portfolio_metadata)  # Matches team only
+        result5 = _include('system5', mock_portfolio_metadata)  # Matches division only
 
         assert result1 is True
-        assert result2 is True
+        assert result2 is False
         assert result3 is True
+        assert result4 is False
+        assert result5 is False
 
     def test_find_system_metadata_returns_none_for_unknown_system(self, mock_portfolio_metadata):
         """Test that _find_system_metadata returns None for systems not in portfolio."""
@@ -273,3 +288,126 @@ class TestPortfolioArguments:
 
         assert len(result['systems']) == 1
         assert result['systems'][0]['system'] == 'system2'
+
+
+class TestFilterConsistency:
+    """Test that all filters are consistently defined across all configuration points."""
+
+    def test_all_filters_have_consistent_configuration(self):
+        """Test that all filters are defined in FILTER_CONFIGURATION, METADATA_FILTER_CHECKS, and module globals."""
+        config_filters = set(FILTER_CONFIGURATION.keys())
+        check_filters = {global_var[1:] for global_var, _, _ in METADATA_FILTER_CHECKS}
+        
+        # Extract global variable names from portfolio_arguments module (strip leading underscore)
+        module_vars = {
+            name[1:] for name in dir(portfolio_arguments)
+            if name.startswith('_') 
+            and not name.startswith('__')
+            and name in ['_team', '_division', '_lifecycle', '_deployment', 
+                         '_business_criticality', '_distribution', '_application_type',
+                         '_target_industry', '_technology_category', '_main_technology']
+        }
+        
+        sig = inspect.signature(set_context)
+        set_context_params = set(sig.parameters.keys())
+        
+        assert config_filters == check_filters, (
+            f"Mismatch between FILTER_CONFIGURATION and METADATA_FILTER_CHECKS:\n"
+            f"  In FILTER_CONFIGURATION but not METADATA_FILTER_CHECKS: {config_filters - check_filters}\n"
+            f"  In METADATA_FILTER_CHECKS but not FILTER_CONFIGURATION: {check_filters - config_filters}"
+        )
+        
+        assert config_filters == module_vars, (
+            f"Mismatch between FILTER_CONFIGURATION and module global variables:\n"
+            f"  In FILTER_CONFIGURATION but no global variable: {config_filters - module_vars}\n"
+            f"  Global variable exists but not in FILTER_CONFIGURATION: {module_vars - config_filters}"
+        )
+        
+        assert config_filters == set_context_params, (
+            f"Mismatch between FILTER_CONFIGURATION and set_context() parameters:\n"
+            f"  In FILTER_CONFIGURATION but not in set_context(): {config_filters - set_context_params}\n"
+            f"  In set_context() but not in FILTER_CONFIGURATION: {set_context_params - config_filters}"
+        )
+
+    def test_all_filters_checked_in_are_filters_set(self):
+        """Test that _are_filters_set() checks all filter variables."""
+        import ast
+        import inspect
+        
+        source = inspect.getsource(_are_filters_set)
+        tree = ast.parse(source)
+        
+        checked_vars = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id.startswith('_') and not node.id.startswith('__'):
+                checked_vars.add(node.id[1:])  # Remove leading underscore
+        
+        all_filters = set(FILTER_CONFIGURATION.keys())
+        
+        assert checked_vars == all_filters, (
+            f"Mismatch in _are_filters_set() function:\n"
+            f"  Filters not checked: {all_filters - checked_vars}\n"
+            f"  Extra checks for non-existent filters: {checked_vars - all_filters}"
+        )
+
+    def test_all_filters_in_error_message(self):
+        """Test that _raise_no_systems_found_error() includes all filters in error message."""
+        import ast
+        import inspect
+        from report_generator.generator.data_models.portfolio.portfolio_arguments import _raise_no_systems_found_error
+        
+        source = inspect.getsource(_raise_no_systems_found_error)
+        tree = ast.parse(source)
+        
+        # Extract all variable names from the active_filters list
+        error_filters = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id.startswith('_') and not node.id.startswith('__'):
+                if node.id in ['_team', '_division', '_lifecycle', '_deployment', 
+                               '_business_criticality', '_distribution', '_application_type',
+                               '_target_industry', '_technology_category', '_main_technology']:
+                    error_filters.add(node.id[1:])  # Remove leading underscore
+        
+        all_filters = set(FILTER_CONFIGURATION.keys())
+        assert error_filters == all_filters, (
+            f"Mismatch in _raise_no_systems_found_error() function:\n"
+            f"  Filters not in error message: {all_filters - error_filters}\n"
+            f"  Extra filters in error message: {error_filters - all_filters}"
+        )
+
+    def test_all_filters_in_include_global_declaration(self):
+        """Test that _include() declares all filter variables as global."""
+        import ast
+        import inspect
+        
+        source = inspect.getsource(_include)
+        tree = ast.parse(source)
+        
+        global_vars = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Global):
+                for name in node.names:
+                    if name.startswith('_') and not name.startswith('__'):
+                        global_vars.add(name[1:])  # Remove leading underscore
+        
+        all_filters = set(FILTER_CONFIGURATION.keys())
+        
+        assert global_vars == all_filters, (
+            f"Mismatch in _include() global declarations:\n"
+            f"  Filters not declared as global: {all_filters - global_vars}\n"
+            f"  Extra global declarations: {global_vars - all_filters}"
+        )
+
+    def test_filter_configuration_matches_metadata_checks(self):
+        """Test that FILTER_CONFIGURATION global var names match METADATA_FILTER_CHECKS."""
+        for filter_name, (global_var_name, _, _) in FILTER_CONFIGURATION.items():
+            matching_checks = [
+                (gv, mk, t) for gv, mk, t in METADATA_FILTER_CHECKS 
+                if gv == global_var_name
+            ]
+            
+            assert len(matching_checks) == 1, (
+                f"Filter '{filter_name}' with global var '{global_var_name}' "
+                f"should have exactly one entry in METADATA_FILTER_CHECKS, "
+                f"found {len(matching_checks)}"
+            )

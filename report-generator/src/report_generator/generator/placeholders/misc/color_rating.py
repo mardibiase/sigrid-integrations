@@ -38,7 +38,7 @@ class _AbstractColorRatingPlaceholder(ParameterizedPlaceholder, ABC):
         rating = value_cb()
 
         rating_color = report_utils.pptx.determine_rating_color(rating)
-        rating_rounded = formatters.maintainability_round(rating)
+        rating_rounded = formatters.star_rating_round(rating)
 
         for shape in shapes:
             report_utils.pptx.set_shape_color(shape, rating_color)
@@ -51,7 +51,7 @@ class ArchColorRatingPlaceholder(_AbstractColorRatingPlaceholder):
     allowed_parameters = list(ArchMetric) + list(ArchSubcharacteristic)
 
     @classmethod
-    def value(cls, metric: MetricEnum = None):
+    def value(cls, metric: MetricEnum = None, additional_parameter=None):
         metric_key = metric.to_json_name()
         return architecture_data.get_score_for_prop_or_subchar(metric_key)
 
@@ -61,6 +61,6 @@ class MaintColorRatingPlaceholder(_AbstractColorRatingPlaceholder):
     allowed_parameters = list(MaintMetric)
 
     @classmethod
-    def value(cls, metric: MetricEnum = None):
+    def value(cls, metric: MetricEnum = None, additional_parameter=None):
         metric_key = metric.to_json_name()
         return maintainability_data.data[metric_key]
