@@ -65,9 +65,10 @@ def populateMetadataCompletenessSheet(sheet, activeSystems, metadata):
 def populateSnapshotFreshnessSheet(sheet, activeSystems, metadata):
     sheet.append(["System name", "Division", "Team", "Snapshot freshness"])
 
+    timeNow = datetime.now()
     for system in activeSystems:
         snapshotDate = sigrid.fetchArchitectureQuality(system)["snapshotDate"]
-        if datetime.now() - datetime.fromisoformat(snapshotDate) > timedelta(days=90):
+        if timeNow - datetime.fromisoformat(snapshotDate) > timedelta(days=90):
             systemName = metadata[system]["displayName"] or system
             division = "INCOMPLETE" if not metadata[system]["divisionName"] else metadata[system]["divisionName"]
             team = ", ".join(str(item) for item in (["INCOMPLETE"] if not metadata[system]["teamNames"] else metadata[system]["teamNames"]))
@@ -91,8 +92,9 @@ def populateEolSystemsSheet(sheet, metadata):
 def populateLastSigridAccessSheet(sheet, users):
     sheet.append(["Last name", "First name", "Email", "Role", "Last login"])
 
+    timeNow = datetime.now()
     usersOlderThanOneYear = [user for user in users if user["lastLoginAt"] is not None and
-                             datetime.now() - datetime.fromisoformat(user["lastLoginAt"]) > timedelta(days=365)]
+                             timeNow - datetime.fromisoformat(user["lastLoginAt"]) > timedelta(days=365)]
     for user in usersOlderThanOneYear:
         sheet.append([user["lastName"], user["firstName"], user["email"], user["role"].title(), ">1 year"])
 
