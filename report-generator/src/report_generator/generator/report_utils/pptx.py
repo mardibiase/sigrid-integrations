@@ -72,7 +72,7 @@ def update_paragraph(paragraph: _Paragraph, placeholder_id, replacement_text, fo
     merge_runs_with_same_formatting(paragraph)
 
     try:
-        run_with_placeholder = next(run for run in (paragraph.runs or []) if placeholder_id in run.text)
+        run_with_placeholder = next(run for run in (paragraph.runs or []) if re.search(rf'\b{re.escape(placeholder_id)}\b', run.text))
     except StopIteration:
         logging.warning(
             f"Attempt to update placeholder '{placeholder_id}', but not found in paragraph: {paragraph.text}")
