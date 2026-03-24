@@ -68,6 +68,16 @@ def _validate_layout_or_template(ctx, param, value):
     return value
 
 
+UPGRADE_NOTICE = """
+================================================================================
+  UPGRADE AVAILABLE: Sigrid Report Generator v1 has been released in a new
+  repository. This version will no longer receive updates.
+
+  Please migrate to: https://github.com/Software-Improvement-Group/sigrid-report-generator
+================================================================================
+"""
+
+
 @click.command()
 @click.option('-d', '--debug', is_flag=True, default=False, help='Enable debug messages')
 @click.option('-c', '--customer', required=True, callback=_normalize_name, help='Customer name')
@@ -88,6 +98,7 @@ def _validate_layout_or_template(ctx, param, value):
 @generator_arguments
 @click.pass_context
 def run(_, debug, customer, system, token, layout, template, start, end, out_file, api_url):
+    click.echo(UPGRADE_NOTICE, err=True)
     _configure_logging(debug)
     _configure_api(customer, system, token, (start, end), api_url)
     _record_usage_statistics(layout, customer)

@@ -1,3 +1,7 @@
+> **Upgrade available:** Sigrid Report Generator v1 has been released in a dedicated repository.
+> This version will no longer receive updates. Please migrate to
+> [sigrid-report-generator](https://github.com/Software-Improvement-Group/sigrid-report-generator).
+
 # Sigrid Report Generator
 
 The Sigrid Report Generator is a tool/framework designed to generate any kind of report that is based on data
