@@ -79,7 +79,7 @@ def update_paragraph(paragraph: _Paragraph, placeholder_id, replacement_text, fo
         return
 
     logging.debug(f"Replacing: {placeholder_id} with \"{replacement_text}\". New text: {run_with_placeholder.text}")
-    run_with_placeholder.text = run_with_placeholder.text.replace(placeholder_id, str(replacement_text))
+    run_with_placeholder.text = re.sub(rf'\b{re.escape(placeholder_id)}\b', str(replacement_text), run_with_placeholder.text)
 
     if font:
         apply_font_properties(run_with_placeholder, font)

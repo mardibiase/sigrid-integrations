@@ -51,4 +51,4 @@ def update_paragraph(paragraph, placeholder_id, replacement_text: Union[str, int
         return
 
     logging.debug(f"Replacing: {placeholder_id} with \"{replacement_text}\". New text: {run_with_placeholder.text}")
-    run_with_placeholder.text = run_with_placeholder.text.replace(placeholder_id, replacement_text)
+    run_with_placeholder.text = re.sub(rf'\b{re.escape(placeholder_id)}\b', replacement_text, run_with_placeholder.text)
