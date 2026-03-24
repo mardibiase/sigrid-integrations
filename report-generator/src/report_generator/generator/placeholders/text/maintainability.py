@@ -68,7 +68,7 @@ def maint_relative():
 @text_placeholder()
 def maint_indication():
     """Indication of whether the system's Maintainability Rating is above, below or at market average."""
-    logging.warning("maint_indication is deprecated and will be removed, use maint_cost_relative instead")
+    logging.warning("maint_indication is deprecated and will be removed, use maint_relative_cost instead")
     return maint_relative_cost()
 
 
