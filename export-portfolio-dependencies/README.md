@@ -11,7 +11,8 @@ This tool is currently in the proof-of-concept phase. Things may not completely 
 
 ## Installation
 
-See the Report Generator [installation documents](../report-generator/docs/installation.md) but change the path to the export-portfolio-dependencies one.
+1. Clone this repository and `cd` into it.
+2. Install the dependencies: `pip3 install -r export-portfolio-dependencies/requirements.txt`
 
 ## Usage
 
