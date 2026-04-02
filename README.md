@@ -29,7 +29,7 @@ We currently have the following integrations:
 * [LDAP group synchronization](ldap-group-sync/) synchronizes group memberships from LDAP to Sigrid user groups.
 * [Objectives report](objectives-report/) generates charts based on Sigrid objectives, suitable to include in internal reporting. These charts go beyond what is available in the Sigrid user interface, and have a focus on reporting progress over longer periods of time.
 * [Polarion integration](polarion-integration/) synchronizes data between Sigrid and [Siemens Polarion](https://polarion.plm.automation.siemens.com).
-* [Report Generator](report-generator/) is a tool/framework designed to generate any kind of report.
+* The [Report Generator](https://github.com/Software-Improvement-Group/sigrid-report-generator) has been moved to a dedicated repository and is no longer a part of sigrid-integrations.
 * [Slack security findings](slack-security-findings/) uses Sigrid's API to get open security findings for a system and posts the result to Slack.
 * [Open Source Health portfolio export](export-portfolio-dependencies/) exports all open source dependencies for a portfolio to Excel.
 
