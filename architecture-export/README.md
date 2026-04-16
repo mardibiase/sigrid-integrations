@@ -21,12 +21,13 @@ Assuming you meet the prerequisites listed above, you can run the script:
 
 This script takes the following arguments:
 
-| Argument     | Description                                        |
-|--------------|----------------------------------------------------|
-| `--customer` | Your Sigrid customer name.                         |
-| `--system`   | Your Sigrid system name.                           |
-| `--format`   | Export format, one of `json`, `dot`, `png`, `pdf`. |
-| `--out`      | Output directory.                                  |
+| Argument         | Description                                                                                        |
+|------------------|----------------------------------------------------------------------------------------------------|
+| `--customer`     | Your Sigrid customer name.                                                                         |
+| `--system`       | Your Sigrid system name.                                                                           |
+| `--format`       | Export format, one of `json`, `dot`, `png`, `pdf`.                                                 |
+| `--out`          | Output directory.                                                                                  |
+| `--entanglement` | (Optional) Color-codes every dependency in the diagram based on the Component Entanglement metric. |
 
 ## License
 

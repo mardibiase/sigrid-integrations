@@ -24,11 +24,28 @@ from sigridaq.architecture_graph import ArchitectureGraph
 from sigridaq.graphviz import exportDot
 
 
+def fetchArchitectureGraph(sigridURL, customer, system):
+    request = urllib.request.Request(f"{sigridURL}/rest/analysis-results/api/v1/architecture-quality/{customer}/{system}/raw")
+    request.add_header("Accept", "application/json")
+    request.add_header("Authorization", f"Bearer {os.environ['SIGRID_CI_TOKEN']}".encode("utf8"))
+    with urllib.request.urlopen(request) as response:
+        return ArchitectureGraph(json.load(response))
+
+
+def fetchComponentEntanglement(sigridURL, customer, system):
+    request = urllib.request.Request(f"{sigridURL}/rest/analysis-results/api/v1/refactoring-candidates/{customer}/{system}/componentEntanglement")
+    request.add_header("Accept", "application/json")
+    request.add_header("Authorization", f"Bearer {os.environ['SIGRID_CI_TOKEN']}".encode("utf8"))
+    with urllib.request.urlopen(request) as response:
+        return json.load(response)["refactoringCandidates"]
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(description="Exports data from Sigrid's Architecture Quality.")
     parser.add_argument("--customer", type=str, required=True, help="Sigrid customer name.")
     parser.add_argument("--system", type=str, required=True, help="Sigrid customer name.")
     parser.add_argument("--format", choices=["json", "dot", "pdf", "png"], required=True, help="Export format.")
+    parser.add_argument("--entanglement", action="store_true", help="Color diagram based on Component Entanglement.")
     parser.add_argument("--out", type=str, required=True, help="Output directory.")
     parser.add_argument("--sigridurl", type=str, default="https://sigrid-says.com")
     args = parser.parse_args()
@@ -37,11 +54,9 @@ if __name__ == "__main__":
         print("Missing environment variable SIGRID_CI_TOKEN")
         sys.exit(1)
 
-    request = urllib.request.Request(f"{args.sigridurl}/rest/analysis-results/api/v1/architecture-quality/{args.customer}/{args.system}/raw")
-    request.add_header("Accept", "application/json")
-    request.add_header("Authorization", f"Bearer {os.environ['SIGRID_CI_TOKEN']}".encode("utf8"))
-    with urllib.request.urlopen(request) as response:
-        architectureGraph = ArchitectureGraph(json.load(response))
+    architectureGraph = fetchArchitectureGraph(args.sigridurl, args.customer, args.system)
+    if args.entanglement:
+        architectureGraph.entanglement = fetchComponentEntanglement(args.sigridurl, args.customer, args.system)
 
     outputDir = os.path.expanduser(args.out)
     os.makedirs(outputDir, exist_ok=True)
