@@ -46,7 +46,7 @@ def exportDot(architectureGraph, dotFile, format):
         f.write("}\n")
 
     if format != "dot":
-        subprocess.run(["dot", "-Tpdf", "-o", f"{dotFile}.{format}", dotFile])
+        subprocess.run(["dot", f"-T{format}", "-o", f"{dotFile}.{format}", dotFile])
 
 
 def getDependencyColor(architectureGraph, source, target):
