@@ -17,7 +17,14 @@ import subprocess
 
 FONT = "fontname=\"sans-serif\""
 NODE_STYLE = f"shape=\"box\" style=\"filled\" fillcolor=\"#1B64FF\" color=\"#FFFFFF\" fontcolor=\"#FFFFFF\" {FONT}"
-EDGE_STYLE = f"color=\"#808087\" fontcolor=\"#808087\" penwidth=\"2\" {FONT}"
+EDGE_STYLE = f"fontcolor=\"#808087\" penwidth=\"2\" {FONT}"
+DEFAULT_DEPENDENCY_COLOR = "color=\"#808087\""
+
+ENTANGLEMENT_COLORS = {
+    "CYCLIC_DEPENDENCY" : "color=\"#DB4A3D\"",
+    "INDIRECT_CYCLIC_DEPENDENCY" : "color=\"#EF981A\"",
+    "LAYER_BYPASSING_DEPENDENCY" : "color=\"#F8C640\""
+}
 
 
 def exportDot(architectureGraph, dotFile, format):
@@ -34,8 +41,22 @@ def exportDot(architectureGraph, dotFile, format):
             for target in architectureGraph.getTopLevelComponents():
                 dependencyCount = architectureGraph.countDependencies(source, target)
                 if dependencyCount > 0:
-                    f.write(f"\"{source['id']}\" -> \"{target['id']}\" [label=\" {dependencyCount}\"]\n")
+                    color = getDependencyColor(architectureGraph, source, target)
+                    f.write(f"\"{source['id']}\" -> \"{target['id']}\" [label=\" {dependencyCount}\" {color}]\n")
         f.write("}\n")
 
     if format != "dot":
-        subprocess.run(["dot", "-Tpdf", "-o", f"{dotFile}.{format}", dotFile])
+        subprocess.run(["dot", f"-T{format}", "-o", f"{dotFile}.{format}", dotFile])
+
+
+def getDependencyColor(architectureGraph, source, target):
+    for violation in architectureGraph.entanglement:
+        ids = [source["name"], target["name"]]
+        violationIds = [violation.get("sourceComponent"), violation.get("targetComponent")]
+
+        if violation["type"] == "CYCLIC_DEPENDENCY" and set(ids) == set(violationIds):
+            return ENTANGLEMENT_COLORS.get(violation["type"], DEFAULT_DEPENDENCY_COLOR)
+        elif ids == violationIds:
+            return ENTANGLEMENT_COLORS.get(violation["type"], DEFAULT_DEPENDENCY_COLOR)
+
+    return DEFAULT_DEPENDENCY_COLOR
