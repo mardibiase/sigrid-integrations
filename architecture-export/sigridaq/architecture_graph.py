@@ -23,6 +23,7 @@ class ArchitectureGraph:
         self.graph = graph
         self.systemLevel = next(se for se in self.graph["systemElements"] if se["type"] == "SYSTEM")
         self.systemElements = {se["id"]: se for se in self.graph["systemElements"]}
+        self.entanglement = []
 
         self.children = defaultdict(list)
         for dependency in graph["dependencies"]:
