@@ -12,7 +12,8 @@ This tool is currently in the proof-of-concept phase. Things may not completely 
 
 ## Installation
 
-See the Report Generator [installation documents](../report-generator/docs/installation.md) but change the path to the compare-security-findings directory.
+1. Clone this repository and `cd` into it.
+2. Install the dependencies: `pip3 install -r compare-security-findings/requirements.txt`
 
 Required dependencies:
 - `pandas`
