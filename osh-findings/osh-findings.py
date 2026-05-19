@@ -262,6 +262,11 @@ if __name__ == "__main__":
     objectives = sigrid.get_objectives()
     osh_results = sigrid.get_osh_results()
 
+    if not osh_results:
+        print(f"No OSH results found for system '{args.system}', quiting")
+        exit(0)
+
+
     exit_code = 0
     exit_code += get_vulnerability_risks(osh_results, objectives.get(VULNERABILITY_FINDING_TYPE.objective_name, args.defaultObjective))
     exit_code += get_updates(osh_results.get('components'), objectives.get(FRESHNESS_FINDING_TYPE.objective_name, args.defaultObjective))
