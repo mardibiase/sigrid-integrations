@@ -263,7 +263,7 @@ if __name__ == "__main__":
     osh_results = sigrid.get_osh_results()
 
     if not osh_results:
-        print(f"No OSH results found for system '{args.system}', quiting")
+        print(f"No OSH results found for system '{args.system}', quitting")
         exit(0)
 
 
