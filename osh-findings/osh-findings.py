@@ -243,15 +243,20 @@ def format_date(datetime: str | None) -> str:
     else:
         return ""
 
-def matches_exclude(dependency):
+def matches_exclude(dependency, excludes):
     if any(re.search(pattern, get_canonical_name(dependency)) for pattern in excludes):
         return True
     return False
 
+def filter_dependencies():
+    with open(args.excludes, "r") as f:
+        excludes = f.read().splitlines()
+    osh_results['components'] = [component for component in osh_results['components'] if not matches_exclude(component, excludes)]
+
 def get_canonical_name(dependency) -> str:
     if 'group' in dependency.keys():
         purl = dependency['purl']
-        if purl.startswith('pkg:npm') or purl.startswith('pkg:gem') or purl.startswith('purl:go'):
+        if purl.startswith(('pkg:npm', 'pkg:gem', 'purl:go')):
             return dependency['group'] + '/' + dependency['name']
         elif purl.startswith('pkg:maven'):
             return dependency['group'] + ':' + dependency['name']
@@ -284,9 +289,7 @@ if __name__ == "__main__":
         exit(0)
 
     if args.excludes:
-        with open(args.excludes, "r") as f:
-            excludes = f.read().splitlines()
-        osh_results['components'] = [component for component in osh_results['components'] if not matches_exclude(component)]
+        filter_dependencies()
 
     exit_code = 0
     exit_code += get_vulnerability_risks(osh_results, objectives.get(VULNERABILITY_FINDING_TYPE.objective_name, args.defaultObjective))
