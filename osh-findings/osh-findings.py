@@ -17,12 +17,12 @@
 from enum import Enum
 import json
 import os
+import re
 import sys
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from http.client import RemoteDisconnected
 from json import JSONDecodeError
-import ssl
 
 from tabulate import tabulate
 from typing import Dict, List
@@ -153,7 +153,7 @@ def get_vulnerability_risks(sbom: Dict, objective: str) -> int:
             vulnerability_details.sort(key=lambda v: v.get('ratings')[0].get('score'), reverse=True)
             table_data.append([
                 get_property_value(finding, VULNERABILITY_FINDING_TYPE.risk_name),
-                finding.get('name'),
+                get_canonical_name(finding),
                 get_property_value(finding, TRANSITIVE_PROPERTY),
                 get_locations(component=finding),
                 "\n\n".join([summarize_vulnerability(v) for v in vulnerability_details])
@@ -187,7 +187,7 @@ def get_legal_risks(components: List[Dict], objective: str) -> int:
         for finding in findings:
             table_data.append([
                 get_property_value(finding, LEGAL_FINDING_TYPE.risk_name),
-                finding.get('name'),
+                get_canonical_name(finding),
                 get_locations(finding),
                 "\n".join([l.get('license').get('name') for l in finding.get('licenses', None) if l])
             ])
@@ -220,7 +220,7 @@ def get_updates(components: List[Dict], objective: str) -> int:
         for library in updates_available:
             table_data.append([
                 get_property_value(library, FRESHNESS_FINDING_TYPE.risk_name),
-                library.get('name'),
+                get_canonical_name(library),
                 get_locations(library),
                 get_version_info(library)
             ])
@@ -232,8 +232,6 @@ def get_updates(components: List[Dict], objective: str) -> int:
     return 0
 
 def get_version_info(library: Dict) -> str:
-
-
     result =  [f"Current version: {library.get('version')} {format_date(get_property_value(library, RELEASE_DATE_PROPERTY))}",
                 f"Next version: {get_property_value(library, NEXT_VERSION_PROPERTY)} {format_date(get_property_value(library, NEXT_VERSION_DATE_PROPERTY))}",
                 f"Latest version: {get_property_value(library, LATEST_VERSION_PROPERTY)} {format_date(get_property_value(library, LATEST_VERSION_DATE_PROPERTY))}"]
@@ -245,6 +243,23 @@ def format_date(datetime: str | None) -> str:
     else:
         return ""
 
+def matches_exclude(dependency):
+    if any(re.search(pattern, get_canonical_name(dependency)) for pattern in excludes):
+        return True
+    return False
+
+def get_canonical_name(dependency) -> str:
+    if 'group' in dependency.keys():
+        purl = dependency['purl']
+        if purl.startswith('pkg:npm') or purl.startswith('pkg:gem') or purl.startswith('purl:go'):
+            return dependency['group'] + '/' + dependency['name']
+        elif purl.startswith('pkg:maven'):
+            return dependency['group'] + ':' + dependency['name']
+        else:
+            return dependency['group'] + dependency['name']
+    else:
+        return dependency['name']
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Generates a report on the current status of OpenSource Health for a system")
@@ -252,15 +267,23 @@ if __name__ == "__main__":
     parser.add_argument("--system", type=str, help="Sigrid system name.")
     parser.add_argument("--sigridurl", type=str, default="https://sigrid-says.com")
     parser.add_argument("--defaultObjective", type=str, choices=["NONE", "LOW", "MEDIUM", "HIGH"], default="HIGH")
+    parser.add_argument("--excludes", type=str, default=None, help="Path to a file that contains regular expressions of libraries to ignore")
     args = parser.parse_args()
 
     if not os.environ.get(SIGRID_CI_TOKEN_ENV_NAME):
         print("Missing Sigrid API token in environment variable SIGRID_CI_TOKEN")
         sys.exit(1)
 
+
     sigrid = SigridApiClient(args.customer, args.system, args.sigridurl)
     objectives = sigrid.get_objectives()
     osh_results = sigrid.get_osh_results()
+
+    if args.excludes:
+        with open(args.excludes, "r") as f:
+            excludes = f.read().splitlines()
+        osh_results['components'] = [component for component in osh_results['components'] if not matches_exclude(component)]
+
 
     if not osh_results:
         print(f"No OSH results found for system '{args.system}', quitting")

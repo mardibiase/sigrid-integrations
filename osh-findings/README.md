@@ -23,9 +23,12 @@ You will need the following to use this script:
 
 Once all prerequisites are in place, you can use the script.
 
-    ./osh-findings.py --customer <mycustomername> --system <mysystemname> [--defaultObjective [HIGH|MEDIUM|LOW|NONE]]
+    ./osh-findings.py --customer <mycustomername> --system <mysystemname> [--defaultObjective [HIGH|MEDIUM|LOW|NONE]] [--excludes <filename>]
 
 The objectives set (at system or portfolio level) take precedence over the defaultObjective argument. The default value is HIGH.
+
+Optionally a file with dependencies to exclude can be provided. On each line an expression can be put that is evaluated as a Python regex.
+This means that you can use full names, or more complex expressions.
 
 ## Exit codes
 
