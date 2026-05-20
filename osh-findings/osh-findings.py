@@ -279,16 +279,14 @@ if __name__ == "__main__":
     objectives = sigrid.get_objectives()
     osh_results = sigrid.get_osh_results()
 
-    if args.excludes:
-        with open(args.excludes, "r") as f:
-            excludes = f.read().splitlines()
-        osh_results['components'] = [component for component in osh_results['components'] if not matches_exclude(component)]
-
-
     if not osh_results:
         print(f"No OSH results found for system '{args.system}', quitting")
         exit(0)
 
+    if args.excludes:
+        with open(args.excludes, "r") as f:
+            excludes = f.read().splitlines()
+        osh_results['components'] = [component for component in osh_results['components'] if not matches_exclude(component)]
 
     exit_code = 0
     exit_code += get_vulnerability_risks(osh_results, objectives.get(VULNERABILITY_FINDING_TYPE.objective_name, args.defaultObjective))
