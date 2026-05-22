@@ -256,7 +256,7 @@ def filter_dependencies():
 def get_canonical_name(dependency) -> str:
     if 'group' in dependency.keys():
         purl = dependency['purl']
-        if purl.startswith(('pkg:npm', 'pkg:gem', 'purl:go')):
+        if purl.startswith(('pkg:npm', 'pkg:gem', 'pkg:golang')):
             return dependency['group'] + '/' + dependency['name']
         elif purl.startswith('pkg:maven'):
             return dependency['group'] + ':' + dependency['name']
