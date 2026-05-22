@@ -244,13 +244,11 @@ def format_date(datetime: str | None) -> str:
         return ""
 
 def matches_exclude(dependency, excludes):
-    if any(re.search(pattern, get_canonical_name(dependency)) for pattern in excludes):
-        return True
-    return False
+    return any(re.search(pattern, get_canonical_name(dependency)) for pattern in excludes)
 
 def filter_dependencies():
     with open(args.excludes, "r") as f:
-        excludes = f.read().splitlines()
+        excludes = [line.strip() for line in f.read().splitlines() if line.strip() and not line.strip().startswith("#")]
     osh_results['components'] = [component for component in osh_results['components'] if not matches_exclude(component, excludes)]
 
 def get_canonical_name(dependency) -> str:
@@ -278,7 +276,6 @@ if __name__ == "__main__":
     if not os.environ.get(SIGRID_CI_TOKEN_ENV_NAME):
         print("Missing Sigrid API token in environment variable SIGRID_CI_TOKEN")
         sys.exit(1)
-
 
     sigrid = SigridApiClient(args.customer, args.system, args.sigridurl)
     objectives = sigrid.get_objectives()

@@ -28,7 +28,7 @@ Once all prerequisites are in place, you can use the script.
 The objectives set (at system or portfolio level) take precedence over the defaultObjective argument. The default value is HIGH.
 
 Optionally a file with dependencies to exclude can be provided. On each line an expression can be put that is evaluated as a Python regex.
-This means that you can use full names, or more complex expressions.
+This means that you can use full names, or more complex expressions. Empty lines and lines starting with `#` are ignored (allowing you to use comments.)
 
 ## Exit codes
 
