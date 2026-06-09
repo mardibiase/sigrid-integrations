@@ -141,8 +141,8 @@ def get_colored_risk(risk: str, objective: str) -> str:
 
 
 def get_vulnerability_risks(sbom: Dict, objective: str) -> int:
-    findings = [dep for dep in sbom.get('components') if risk_exceeds_objective(dep, VULNERABILITY_FINDING_TYPE.risk_name, Risk.NONE.name)]
-    libraries_not_meeting_objective = len([dep for dep in sbom.get('components') if risk_exceeds_objective(dep, VULNERABILITY_FINDING_TYPE.risk_name, objective) and not is_transitive(dep)])
+    findings = [dep for dep in sbom.get('components', []) if risk_exceeds_objective(dep, VULNERABILITY_FINDING_TYPE.risk_name, Risk.NONE.name)]
+    libraries_not_meeting_objective = len([dep for dep in sbom.get('components', []) if risk_exceeds_objective(dep, VULNERABILITY_FINDING_TYPE.risk_name, objective) and not is_transitive(dep)])
 
     if findings:
         headers = ["risk", "library", "type", "locations", "description"]
