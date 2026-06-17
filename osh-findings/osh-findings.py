@@ -266,8 +266,8 @@ def get_canonical_name(dependency) -> str:
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Generates a report on the current status of OpenSource Health for a system")
-    parser.add_argument("--customer", type=str, help="Sigrid customer name.")
-    parser.add_argument("--system", type=str, help="Sigrid system name.")
+    parser.add_argument("--customer", type=str, required=True, help="Sigrid customer name.")
+    parser.add_argument("--system", type=str, required=True, help="Sigrid system name.")
     parser.add_argument("--sigridurl", type=str, default="https://sigrid-says.com")
     parser.add_argument("--defaultObjective", type=str, choices=["NONE", "LOW", "MEDIUM", "HIGH"], default="HIGH")
     parser.add_argument("--excludes", type=str, default=None, help="Path to a file that contains regular expressions of libraries to ignore")
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     objectives = sigrid.get_objectives()
     osh_results = sigrid.get_osh_results()
 
-    if not osh_results:
+    if not osh_results or not osh_results.get('components'):
         print(f"No OSH results found for system '{args.system}', quitting")
         exit(0)
 
