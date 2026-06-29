@@ -15,15 +15,15 @@ The idea is to use this script for instance once per day as a scheduled job, the
 2. Click **"..." (more options)** next to the channel name.
 3. Select **Workflows**.
 
-   <img width="330" height="362" alt="teams-workflow" src="https://github.com/user-attachments/assets/44ba9cb2-1a3b-44af-bfbb-398ec5bc1f75" />
+  <img src="docs/images/teams-workflow.png" width="300" />
 
 4. Search for and select the template **"Send webhook alerts to a channel"**.
 
-   <img width="720" height="388" alt="teams-send-webhook" src="https://github.com/user-attachments/assets/9b101b2b-719c-44db-8b47-965caf60ec31" />
+   <img src="docs/images/teams-send-webhook.png" width="400" />
 
 5. Confirm the team and channel, then **Save**.
 
-   <img width="661" height="568" alt="teams-channel" src="https://github.com/user-attachments/assets/fbdbceb5-ffa5-4a59-bf0b-dbd4c60cd1a2" /> 
+   <img src="docs/images/teams-channel.png" width="400" />
   
 6. Copy the generated webhook URL.
 
@@ -60,4 +60,4 @@ Replace `mycustomer` and `mysystem` with your Sigrid customer account name and s
 
 ### Example result
 
-<img width="675" height="314" alt="teams-findings" src="https://github.com/user-attachments/assets/83059a1e-d5a0-47d9-8589-34c449b7a769" />
+<img src="docs/images/teams-findings.png" width="675" />
