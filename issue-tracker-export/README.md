@@ -11,6 +11,7 @@ The following issue trackers are supported:
 - [GitHub](#usage-for-github)
 - [GitLab](#usage-for-gitlab)
 - [JIRA](#usage-for-jira)
+- [Azure DevOps](#usage-for-azure-devops)
 
 ## Prerequisites
 
@@ -67,22 +68,32 @@ Running this script requires two environment variables:
 The `--project` argument is used to control which projects should be exported. It should contain a comma-separated
 list of [JIRA project keys](https://confluence.atlassian.com/adminjiraserver/editing-a-project-key-938847080.html).
 
+## Usage for Azure DevOps
+
+You can export your Azure DevOps work items from your pipeline using these scripts. Depending on your environment, you
+can either clone this repository and then run the script, or you can run the script via the Docker container.
+
+    ./export_azure_devops_issues.py --ado-api-url https://dev.azure.com --org myorganization --project myproject
+
+- `--ado-api-url`: Specify the base URL of your Azure DevOps instance (default: `https://dev.azure.com`). Override this for Azure DevOps Server (on-premises) installations.
+- `--org`: Provide your Azure DevOps organization name.
+- `--project`: Provide one or more Azure DevOps project names as a comma-separated list.
+- `--epic-type`: The work item type used for epics (default: `Epic`). Override this if your organization uses a custom type.
+- `--exclude-labels`: Comma-separated list of tags to exclude from the export.
+- `--start`: Only export work items created after this date (format: `yyyy-mm-dd`).
+
+The script requires an environment variable called `AZURE_DEVOPS_PAT`, which should be a
+[personal access token](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
+with **Work Items (Read)** and **Code (Read)** scope.
+
 ## What issue tracker data is published to Sigrid?
 
-The issue tracker integration exports issues in a generic format, which is then published to Sigrid. 
-The following information is exported for each issue:
+The issue tracker integration exports issues in a generic format, which is then published to Sigrid.
+The description of your issue will **not** be published to Sigrid. The export only contains metadata for each issue,
+such as its type, its status, and the dates it was created and closed.
 
-  - Project name
-  - Title
-  - Status
-  - Created date
-  - Closed date
-  - Author
-  - Assignee
-  - Epic title
-  - List of labels
-
-The name of the author and assignee are anonymized into an SHA-256 hash. This means the original names are never
+The issue data will contain the names of the authors and assignees. You can anonymize these names, meaning the
+actual name will be replaced with a SHA-256 hash when exporting the data. This means the original names are never
 published to Sigrid.
 
 ## License

@@ -16,12 +16,13 @@ jobs:
         with:
           customer: sig
           system: sigrid-integrations
-          capability: maintainability,osh
+          capability: maintainability,osh,security
         env:
           SIGRID_CI_TOKEN: "${{ secrets.SIGRID_CI_TOKEN }}"
-      - name: "Sigrid pull request feedback"
-        uses: mshick/add-pr-comment@v2
+          SIGRIDCI_GITHUB_COMMENT_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Archive Sigrid CI artifacts
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          message-id: sigrid
-          message-path: sigrid-ci-output/*feedback.md
+          name: sigrid-ci-results
+          path: "sigrid-ci-output/**"
